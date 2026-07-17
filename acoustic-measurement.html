@@ -1,0 +1,2498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acoustic Measurement</title>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #0d1117;
+  color: #c9d1d9;
+  padding: 20px;
+  min-height: 100vh;
+}
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 auto 20px;
+  max-width: 1400px;
+  color: #58a6ff;
+  letter-spacing: 0.3px;
+}
+h2 {
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 10px;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #8b949e;
+}
+/* ===== Layout ===== */
+.app-grid {
+  display: flex;
+  gap: 8px;
+  max-width: 1400px;
+  margin: 0 auto;
+  align-items: flex-start;
+}
+.left-col {
+  width: 320px;
+  flex-shrink: 0;
+}
+.right-col {
+  flex: 1;
+  min-width: 0;
+}
+/* ===== Resizer ===== */
+.resizer {
+  width: 5px;
+  cursor: col-resize;
+  flex-shrink: 0;
+  align-self: stretch;
+  background: #30363d;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+.resizer:hover,
+.resizer.resizing {
+  background: #58a6ff;
+}
+@media (max-width: 900px) {
+  .app-grid { flex-direction: column; }
+  .left-col { width: auto !important; }
+  .resizer { display: none; }
+}
+.panel {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.panel-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.panel-row:last-child { margin-bottom: 0; }
+/* ===== Form Controls ===== */
+label {
+  font-size: 13px;
+  color: #8b949e;
+  white-space: nowrap;
+}
+select, input[type="range"], input[type="number"] {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+select { min-width: 120px; }
+select:focus { border-color: #58a6ff; outline: none; }
+input[type="number"] {
+  -moz-appearance: textfield;
+  padding: 4px 6px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"]:focus { border-color: #58a6ff; outline: none; }
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #30363d;
+  border-radius: 2px;
+  border: none;
+  padding: 0;
+  flex: 1;
+  min-width: 80px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #58a6ff;
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #58a6ff;
+  cursor: pointer;
+  border: none;
+}
+.range-value {
+  font-size: 13px;
+  color: #58a6ff;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.chk-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #c9d1d9;
+}
+.chk-label input[type="checkbox"] {
+  accent-color: #58a6ff;
+}
+/* ===== Buttons ===== */
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  color: #fff;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-primary { background: #238636; }
+.btn-primary:hover:not(:disabled) { background: #2ea043; }
+.btn-danger { background: #da3633; }
+.btn-danger:hover:not(:disabled) { background: #f85149; }
+.btn-accent { background: #1f6feb; }
+.btn-accent:hover:not(:disabled) { background: #388bfd; }
+.btn-secondary { background: #21262d; border: 1px solid #30363d; }
+.btn-secondary:hover:not(:disabled) { background: #30363d; }
+.btn-sm { padding: 3px 10px; font-size: 12px; }
+/* ===== Progress ===== */
+.progress-bar {
+  height: 6px;
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #58a6ff, #1f6feb);
+  transition: width 0.1s;
+}
+.progress-text {
+  font-size: 12px;
+  color: #8b949e;
+  text-align: center;
+}
+/* ===== Canvas ===== */
+.canvas-wrap {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+.canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  cursor: crosshair;
+}
+.canvas-legend {
+  display: flex;
+  gap: 18px;
+  padding: 8px 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  background: #0d1117;
+  border-top: 1px solid #30363d;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-dot {
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+}
+/* ===== PEQ List ===== */
+.peq-list { margin-top: 8px; }
+.peq-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 6px;
+  align-items: center;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.peq-item .peq-params {
+  display: contents;
+}
+.peq-item .param-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.peq-item .param-group label {
+  font-size: 11px;
+  min-width: 14px;
+}
+.peq-item .param-group .range-value {
+  font-size: 11px;
+  min-width: 30px;
+}
+.peq-summary {
+  font-size: 12px;
+  color: #8b949e;
+  text-align: center;
+  padding: 10px 0 4px;
+}
+/* ===== Status ===== */
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.status-idle { background: #21262d; color: #8b949e; }
+.status-active { background: #1f6feb33; color: #58a6ff; animation: pulse 1.5s infinite; }
+.status-done { background: #23863633; color: #3fb950; }
+.status-error { background: #da363333; color: #f85149; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+/* ===== Level Meter ===== */
+.meter-track {
+  height: 10px;
+  background: #0d1117;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid #21262d;
+  position: relative;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.06s ease;
+  background: linear-gradient(90deg, #3fb950 0%, #d29922 55%, #da3633 85%, #f85149 100%);
+}
+/* ===== Left sidebar narrow ===== */
+.narrow-input { max-width: 70px; }
+.flex-col { display: flex; flex-direction: column; gap: 8px; }
+.flex-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.grow { flex: 1; }
+.mt-6 { margin-top: 6px; }
+.mb-6 { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+
+<div style="max-width:1400px;margin:0 auto 20px;display:flex;align-items:center;justify-content:space-between">
+  <h1 style="margin:0">🎧 声学测量工具</h1>
+  <select id="langSelect" style="min-width:110px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:4px 8px;font-size:12px">
+    <option value="zh">中文</option>
+    <option value="en">English</option>
+    <option value="fr">Français</option>
+    <option value="es">Español</option>
+    <option value="ru">Русский</option>
+    <option value="de">Deutsch</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="pt">Português</option>
+  </select>
+</div>
+
+<div class="app-grid">
+
+<!-- ===== LEFT SIDEBAR ===== -->
+<div class="left-col">
+
+  <!-- 设备选择 -->
+  <div class="panel" id="devicePanel">
+    <h2>设备 / Device</h2>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输入</label>
+      <select id="inDevice" class="grow"></select>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输入声道</label>
+      <select id="inChannel" style="width:100%">
+        <option value="0">左 L</option>
+        <option value="1">右 R</option>
+        <option value="dual" selected>立体声</option>
+      </select>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输出</label>
+      <select id="outDevice" class="grow"></select>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输出声道</label>
+      <select id="outChannel" style="width:100%">
+        <option value="0">左 L</option>
+        <option value="1">右 R</option>
+        <option value="dual" selected>立体声</option>
+      </select>
+    </div>
+    <div class="panel-row">
+      <button id="refreshDevices" class="btn btn-secondary btn-sm">🔄 刷新设备</button>
+      <span id="audioStatus" class="status-badge status-idle">待机</span>
+    </div>
+  </div>
+
+  <!-- 输入电平（独立面板，全局可见） -->
+  <div class="panel" id="levelPanel">
+    <h2>输入电平 / Input Level</h2>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e">
+        <span id="levelLabel">—</span>
+        <span id="levelDB">—∞ dB</span>
+      </div>
+      <div class="meter-track">
+        <div class="meter-fill" id="meterFill" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#484f58">
+        <span>-70</span><span>-35</span><span>0 dB</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 调整 -->
+  <div class="panel" id="adjustPanel">
+    <h2>调整 / Adjust</h2>
+    <div class="panel-row">
+      <button id="playNoiseBtn" class="btn btn-accent btn-sm">▶ 白噪声</button>
+      <button id="stopNoiseBtn" class="btn btn-secondary btn-sm" disabled>■ 停止</button>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输出音量</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="range" id="outVolume" min="-60" max="0" value="-12" step="1" style="flex:1">
+        <span id="outVolumeVal" class="range-value">-12</span>
+      </div>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输入增益</label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="range" id="inGain" min="-12" max="36" value="0" step="1" style="flex:1">
+        <span id="inGainVal" class="range-value">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 测试 -->
+  <div class="panel" id="sweepPanel">
+    <h2>测试 / Sweep</h2>
+    <div class="panel-row">
+      <button id="startSweepBtn" class="btn btn-primary">▶ 开始扫频</button>
+      <button id="stopSweepBtn" class="btn btn-danger" disabled>■ 停止</button>
+    </div>
+    <div class="panel-row">
+      <label>起始</label>
+      <input type="number" id="sweepFreqLow" value="20" min="10" max="20000" style="width:64px">
+      <span style="font-size:11px;color:#8b949e;margin-left:-4px">Hz</span>
+      <label>终止</label>
+      <input type="number" id="sweepFreqHigh" value="20000" min="20" max="24000" style="width:64px">
+      <span style="font-size:11px;color:#8b949e;margin-left:-4px">Hz</span>
+    </div>
+    <div class="panel-row">
+      <label>点数</label>
+      <input type="number" id="sweepPoints" value="50" min="5" max="500" style="width:56px">
+      <label>时长</label>
+      <input type="number" id="pointDuration" value="150" min="20" max="1000" style="width:56px">
+      <span style="font-size:11px;color:#8b949e;margin-left:-4px">ms</span>
+    </div>
+    <div class="panel-row">
+      <label class="chk-label">
+        <input type="checkbox" id="useFilter" checked>
+        带通滤波
+      </label>
+      <label>Q</label>
+      <input type="number" id="filterQ" value="5" min="0.5" max="20" step="0.5" style="width:50px">
+    </div>
+    <!-- 进度由下方状态栏显示 -->
+    <div class="panel-row" style="margin-top:6px;padding-top:6px;border-top:1px solid #21262d">
+      <span id="measureStatus" class="status-badge status-idle">就绪</span>
+      <span style="font-size:12px;color:#8b949e" id="statusDetail">等待测量</span>
+    </div>
+  </div>
+</div>
+
+<div class="resizer" id="resizer"></div>
+
+<!-- ===== RIGHT MAIN ===== -->
+<div class="right-col">
+
+  <!-- Canvas -->
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div class="canvas-wrap">
+      <canvas id="freqChart"></canvas>
+      <div class="canvas-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#58a6ff"></span> 原始频响 <span style="color:#8b949e;font-size:10px">(左轴)</span></span>
+        <span class="legend-item"><span class="legend-dot" style="background:#da3633"></span> PEQ <span style="color:#8b949e;font-size:10px">(右轴)</span></span>
+        <span class="legend-item"><span class="legend-dot" style="background:#3fb950"></span> 校正后</span>
+        <span class="legend-item" style="color:#8b949e">↕ <span id="yRangeLabel">L-- R-- dB</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PEQ -->
+  <div class="panel" id="peqPanel">
+    <div class="flex-row">
+      <h2 style="margin-bottom:0">Parametric EQ</h2>
+      <button id="addPeqBtn" class="btn btn-accent btn-sm">＋ 添加</button>
+      <button id="clearPeqBtn" class="btn btn-secondary btn-sm">清除</button>
+      <span id="peqCount" style="font-size:12px;color:#8b949e;margin-left:auto">0 个</span>
+    </div>
+    <div class="panel-row" style="flex-wrap:nowrap;gap:6px;padding:6px 0;border-bottom:1px solid #21262d;margin-bottom:6px">
+      <span style="font-size:12px;color:#8b949e;white-space:nowrap" data-i18n="autoPeqLabel">自动 PEQ</span>
+      <label style="font-size:11px">数量</label>
+      <input type="number" id="autoPeqCount" value="5" min="1" max="20" style="width:44px">
+      <label style="font-size:11px">目标</label>
+      <input type="number" id="autoPeqTarget" value="0" min="-20" max="0" step="0.5" style="width:50px">
+      <span style="font-size:10px;color:#8b949e">dB</span>
+      <label style="font-size:11px">平直</label>
+      <input type="number" id="autoPeqFreqLow" value="50" min="10" max="20000" style="width:48px">
+      <span style="font-size:10px;color:#8b949e">~</span>
+      <input type="number" id="autoPeqFreqHigh" value="16000" min="20" max="24000" style="width:48px">
+      <span style="font-size:10px;color:#8b949e">Hz</span>
+      <button id="autoPeqBtn" class="btn btn-primary btn-sm" style="margin-left:auto">▶ 生成</button>
+    </div>
+    <div id="peqList" class="peq-list"></div>
+    <div id="peqEmpty" class="peq-summary">尚未添加 PEQ — 点击「添加」创建</div>
+  </div>
+
+  <!-- 导入/导出 -->
+  <div class="panel">
+    <div class="flex-row">
+      <button id="exportBtn" class="btn btn-secondary btn-sm">📤 导出数据</button>
+      <button id="importBtn" class="btn btn-secondary btn-sm">📥 导入数据</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <span style="font-size:12px;color:#8b949e" id="dataInfo">无测量数据</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ========================================================================
+//  多语言翻译
+// ========================================================================
+const LANGUAGES = ['zh','en','fr','es','ru','de','ja','ko','pt'];
+const LOCALE_NAMES = { zh:'中文', en:'English', fr:'Français', es:'Español',
+  ru:'Русский', de:'Deutsch', ja:'日本語', ko:'한국어', pt:'Português' };
+
+const STR = {
+  zh: {
+    appTitle:'🎧 声学测量工具', device:'设备', input:'输入设备',
+    output:'输出设备', inputCh:'输入声道', outputCh:'输出声道', chLeft:'左', chRight:'右',
+    chDual:'立体声', refresh:'🔄 刷新设备', standby:'待机', micReady:'麦克风已就绪',
+    micErr:'麦克风错误', micFail:'麦克风启动失败',
+    level:'输入电平', adjust:'调整', noise:'▶ 白噪声',
+    stop:'■ 停止', outVol:'输出音量', inGain:'输入增益',
+    sweep:'测试', startSweep:'▶ 开始扫频', stopSweep:'■ 停止',
+    from:'起始', to:'终止', points:'点数', dur:'时长', ms:'ms',
+    filter:'带通滤波',
+    ready:'就绪', waiting:'等待测量', preparing:'准备中…',
+    measuring:'测量中', pointFmt:(c,t,f)=>`点 ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'完成', doneFmt:(n,lo,hi)=>`${n} 个频率点 · 范围 ${lo}–${hi} Hz`,
+    error:'错误', stopped:'已停止', aborted:'测量被中止',
+    failed:'失败', noData:'测量数据不足，请检查输入/输出设备和音量',
+    dataInfo:(n,lo,hi,t)=>`数据: ${n} 点 · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`导入: ${n} 点`, importFail:'导入失败',
+    noDataExport:'没有测量数据可以导出', invalidFile:'无效的数据文件',
+    rawResp:'原始频响', peq:'PEQ', corrected:'校正后', leftAxis:'(左轴)', rightAxis:'(右轴)',
+    peqTitle:'Parametric EQ', peqAdd:'＋ 添加', peqClear:'清除',
+    peqEmpty:'尚未添加 PEQ — 点击「添加」创建',
+    peqCount:(n)=>`${n} 个`,
+    peqFreq:'频率', peqGain:'增益',
+    noDataLabel:'无测量数据',
+    exportBtn:'📤 导出数据', importBtn:'📥 导入数据',
+    startAudioFirst:'请先启动音频再切换输出设备',
+    outDevFail:'输出设备切换失败',
+    defaultDev:'系统默认 (Default)',
+    micLabel:(i)=>`麦克风 ${i}`, speakerLabel:(i)=>`扬声器 ${i}`,
+    supportsOutTitle:'当前浏览器不支持切换输出设备（仅 Chrome 可用）',
+    hz:'Hz', db:'dB',
+    axisLeft:'频响 dB', axisRight:'PEQ dB',
+    placeholder1:'执行扫频测量以获取频率响应', placeholder2:'点击左侧「开始扫频」按钮',
+  },
+  en: {
+    appTitle:'🎧 Acoustic Measurement', device:'Device', input:'Input Device',
+    output:'Output Device', inputCh:'Input Ch', outputCh:'Output Ch', chLeft:'Left', chRight:'Right',
+    chDual:'Stereo', refresh:'🔄 Refresh', standby:'Standby', micReady:'Microphone ready',
+    micErr:'Mic error', micFail:'Microphone failed',
+    level:'Input Level', adjust:'Adjust', noise:'▶ White Noise',
+    stop:'■ Stop', outVol:'Output Vol', inGain:'Input Gain',
+    sweep:'Sweep', startSweep:'▶ Start Sweep', stopSweep:'■ Stop',
+    from:'From', to:'To', points:'Points', dur:'Duration', ms:'ms',
+    filter:'Bandpass',
+    ready:'Ready', waiting:'Awaiting measurement', preparing:'Preparing…',
+    measuring:'Measuring', pointFmt:(c,t,f)=>`Point ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'Done', doneFmt:(n,lo,hi)=>`${n} points · ${lo}–${hi} Hz`,
+    error:'Error', stopped:'Stopped', aborted:'Measurement aborted',
+    failed:'Failed', noData:'Insufficient data — check I/O devices and volume',
+    dataInfo:(n,lo,hi,t)=>`Data: ${n} pts · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`Imported: ${n} pts`, importFail:'Import failed',
+    noDataExport:'No measurement data to export', invalidFile:'Invalid data file',
+    rawResp:'Raw Resp.', peq:'PEQ', corrected:'Corrected', leftAxis:'(L)', rightAxis:'(R)',
+    peqTitle:'Parametric EQ', peqAdd:'＋ Add', peqClear:'Clear',
+    peqEmpty:'No PEQ added — click Add to create',
+    peqCount:(n)=>`${n} item(s)`,
+    peqFreq:'Freq.', peqGain:'Gain',
+    noDataLabel:'No data',
+    exportBtn:'📤 Export', importBtn:'📥 Import',
+    startAudioFirst:'Start audio first before switching output device',
+    outDevFail:'Output device switch failed',
+    defaultDev:'System Default',
+    micLabel:(i)=>`Mic ${i}`, speakerLabel:(i)=>`Speaker ${i}`,
+    supportsOutTitle:'Output device switching unsupported (Chrome only)',
+    hz:'Hz', db:'dB',
+    axisLeft:'Resp. dB', axisRight:'PEQ dB',
+    placeholder1:'Run a sweep to measure frequency response', placeholder2:'Click "Start Sweep" on the left',
+  },
+  fr: {
+    appTitle:'🎧 Mesure Acoustique', device:'Périphérique', input:'Périphérique d\'entrée',
+    output:'Périphérique de sortie', inputCh:'Canal Entrée', outputCh:'Canal Sortie',
+    chLeft:'Gauche', chRight:'Droit', chDual:'Stéréo',
+    refresh:'🔄 Actualiser', standby:'Veille', micReady:'Micro prêt',
+    micErr:'Erreur micro', micFail:'Échec micro',
+    level:'Niveau Entrée', adjust:'Ajuster', noise:'▶ Bruit Blanc',
+    stop:'■ Stop', outVol:'Vol. Sortie', inGain:'Gain Entrée',
+    sweep:'Balayage', startSweep:'▶ Démarrer', stopSweep:'■ Stop',
+    from:'Début', to:'Fin', points:'Points', dur:'Durée', ms:'ms',
+    filter:'Passe-bande',
+    ready:'Prêt', waiting:'En attente', preparing:'Préparation…',
+    measuring:'Mesure', pointFmt:(c,t,f)=>`Point ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'Terminé', doneFmt:(n,lo,hi)=>`${n} points · ${lo}–${hi} Hz`,
+    error:'Erreur', stopped:'Arrêté', aborted:'Mesure interrompue',
+    failed:'Échec', noData:'Données insuffisantes',
+    dataInfo:(n,lo,hi,t)=>`Données: ${n} pts · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`Importé: ${n} pts`, importFail:'Échec import',
+    noDataExport:'Aucune donnée', invalidFile:'Fichier invalide',
+    rawResp:'Réponse Brute', peq:'PEQ', corrected:'Corrigé', leftAxis:'(G)', rightAxis:'(D)',
+    peqTitle:'PEQ', peqAdd:'＋ Ajouter', peqClear:'Effacer',
+    peqEmpty:'Aucun PEQ — cliquez Ajouter',
+    peqCount:(n)=>`${n}`, peqFreq:'Fréq.', peqGain:'Gain',
+    noDataLabel:'Aucune donnée',
+    exportBtn:'📤 Exporter', importBtn:'📥 Importer',
+    startAudioFirst:'Démarrez l\'audio d\'abord',
+    outDevFail:'Échec changement sortie',
+    defaultDev:'Défaut Système',
+    micLabel:(i)=>`Micro ${i}`, speakerLabel:(i)=>`HP ${i}`,
+    supportsOutTitle:'Non supporté (Chrome uniquement)',
+    hz:'Hz', db:'dB',
+    axisLeft:'Réponse dB', axisRight:'PEQ dB',
+    placeholder1:'Effectuez un balayage pour mesurer la réponse en fréquence',
+    placeholder2:'Cliquez sur «Démarrer» à gauche',
+  },
+  es: {
+    appTitle:'🎧 Medición Acústica', device:'Dispositivo', input:'Dispositivo de entrada',
+    output:'Dispositivo de salida', inputCh:'Canal Entrada', outputCh:'Canal Salida',
+    chLeft:'Izquierdo', chRight:'Derecho', chDual:'Estéreo',
+    refresh:'🔄 Refrescar', standby:'Espera', micReady:'Micrófono listo',
+    micErr:'Error mic.', micFail:'Fallo micrófono',
+    level:'Nivel Entrada', adjust:'Ajustar', noise:'▶ Ruido Blanco',
+    stop:'■ Parar', outVol:'Vol. Salida', inGain:'Gan. Entrada',
+    sweep:'Barrido', startSweep:'▶ Iniciar', stopSweep:'■ Parar',
+    from:'Inicio', to:'Fin', points:'Puntos', dur:'Duración', ms:'ms',
+    filter:'Paso-banda',
+    ready:'Listo', waiting:'Esperando', preparing:'Preparando…',
+    measuring:'Midiendo', pointFmt:(c,t,f)=>`Punto ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'Completado', doneFmt:(n,lo,hi)=>`${n} puntos · ${lo}–${hi} Hz`,
+    error:'Error', stopped:'Detenido', aborted:'Medición cancelada',
+    failed:'Fallado', noData:'Datos insuficientes',
+    dataInfo:(n,lo,hi,t)=>`Datos: ${n} pts · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`Importado: ${n} pts`, importFail:'Fallo importación',
+    noDataExport:'Sin datos', invalidFile:'Archivo inválido',
+    rawResp:'Resp. Original', peq:'PEQ', corrected:'Corregido', leftAxis:'(I)', rightAxis:'(D)',
+    peqTitle:'PEQ', peqAdd:'＋ Añadir', peqClear:'Limpiar',
+    peqEmpty:'Sin PEQ — pulse Añadir',
+    peqCount:(n)=>`${n}`, peqFreq:'Frec.', peqGain:'Gan.',
+    noDataLabel:'Sin datos',
+    exportBtn:'📤 Exportar', importBtn:'📥 Importar',
+    startAudioFirst:'Inicie audio primero',
+    outDevFail:'Fallo cambio salida',
+    defaultDev:'Defecto Sistema',
+    micLabel:(i)=>`Mic ${i}`, speakerLabel:(i)=>`Altavoz ${i}`,
+    supportsOutTitle:'No soportado (solo Chrome)',
+    hz:'Hz', db:'dB',
+    axisLeft:'Resp. dB', axisRight:'PEQ dB',
+    placeholder1:'Realice un barrido para medir la respuesta de frecuencia',
+    placeholder2:'Haga clic en «Iniciar» a la izquierda',
+  },
+  ru: {
+    appTitle:'🎧 Акустические Измерения', device:'Устройство', input:'Устройство входа',
+    output:'Устройство выхода', inputCh:'Канал входа', outputCh:'Канал выхода',
+    chLeft:'Левый', chRight:'Правый', chDual:'Стерео',
+    refresh:'🔄 Обновить', standby:'Ожидание', micReady:'Микрофон готов',
+    micErr:'Ошибка микрофона', micFail:'Не удалось запустить микрофон',
+    level:'Уровень входа', adjust:'Настройка', noise:'▶ Белый шум',
+    stop:'■ Стоп', outVol:'Громкость', inGain:'Усиление входа',
+    sweep:'Свип', startSweep:'▶ Старт', stopSweep:'■ Стоп',
+    from:'От', to:'До', points:'Точки', dur:'Длит.', ms:'мс',
+    filter:'Полосовой',
+    ready:'Готов', waiting:'Ожидание', preparing:'Подготовка…',
+    measuring:'Измерение', pointFmt:(c,t,f)=>`Точка ${c}/${t}  ${f.toFixed(0)} Гц`,
+    done:'Готово', doneFmt:(n,lo,hi)=>`${n} точек · ${lo}–${hi} Гц`,
+    error:'Ошибка', stopped:'Остановлено', aborted:'Измерение прервано',
+    failed:'Сбой', noData:'Недостаточно данных',
+    dataInfo:(n,lo,hi,t)=>`Данные: ${n} т. · ${lo}–${hi} Гц · ${t}`,
+    importOk:(n)=>`Импорт: ${n} т.`, importFail:'Ошибка импорта',
+    noDataExport:'Нет данных', invalidFile:'Неверный файл',
+    rawResp:'Исходный', peq:'PEQ', corrected:'Скоррект.', leftAxis:'(Л)', rightAxis:'(П)',
+    peqTitle:'PEQ', peqAdd:'＋ Добавить', peqClear:'Очистить',
+    peqEmpty:'Нет PEQ — нажмите Добавить',
+    peqCount:(n)=>`${n}`, peqFreq:'Частота', peqGain:'Усил.',
+    noDataLabel:'Нет данных',
+    exportBtn:'📤 Экспорт', importBtn:'📥 Импорт',
+    startAudioFirst:'Сначала запустите аудио',
+    outDevFail:'Ошибка переключения',
+    defaultDev:'Системный',
+    micLabel:(i)=>`Мик ${i}`, speakerLabel:(i)=>`Дин ${i}`,
+    supportsOutTitle:'Не поддерживается (только Chrome)',
+    hz:'Гц', db:'дБ',
+    axisLeft:'Отклик дБ', axisRight:'PEQ дБ',
+    placeholder1:'Выполните свип-измерение для получения АЧХ',
+    placeholder2:'Нажмите «Старт» слева',
+  },
+  de: {
+    appTitle:'🎧 Akustische Messung', device:'Gerät', input:'Eingangsgerät',
+    output:'Ausgangsgerät', inputCh:'Eingangskanal', outputCh:'Ausgangskanal',
+    chLeft:'Links', chRight:'Rechts', chDual:'Stereo',
+    refresh:'🔄 Aktualisieren', standby:'Bereit', micReady:'Mikrofon bereit',
+    micErr:'Mikrofonfehler', micFail:'Mikrofonfehler',
+    level:'Eingangspegel', adjust:'Einstellen', noise:'▶ Weißes Rauschen',
+    stop:'■ Stop', outVol:'Ausgabelautst.', inGain:'Eingangsverst.',
+    sweep:'Sweep', startSweep:'▶ Start', stopSweep:'■ Stop',
+    from:'Von', to:'Bis', points:'Punkte', dur:'Dauer', ms:'ms',
+    filter:'Bandpass',
+    ready:'Bereit', waiting:'Warten', preparing:'Vorbereiten…',
+    measuring:'Messen', pointFmt:(c,t,f)=>`Punkt ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'Fertig', doneFmt:(n,lo,hi)=>`${n} Punkte · ${lo}–${hi} Hz`,
+    error:'Fehler', stopped:'Gestoppt', aborted:'Abbruch',
+    failed:'Fehlgeschlagen', noData:'Unzureichende Daten',
+    dataInfo:(n,lo,hi,t)=>`Daten: ${n} Pkt. · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`Importiert: ${n} Pkt.`, importFail:'Importfehler',
+    noDataExport:'Keine Daten', invalidFile:'Ungültige Datei',
+    rawResp:'Original', peq:'PEQ', corrected:'Korrigiert', leftAxis:'(L)', rightAxis:'(R)',
+    peqTitle:'PEQ', peqAdd:'＋ Hinzufügen', peqClear:'Löschen',
+    peqEmpty:'Kein PEQ — klicken Sie Hinzufügen',
+    peqCount:(n)=>`${n}`, peqFreq:'Freq.', peqGain:'Gain',
+    noDataLabel:'Keine Daten',
+    exportBtn:'📤 Exportieren', importBtn:'📥 Importieren',
+    startAudioFirst:'Starten Sie zuerst Audio',
+    outDevFail:'Ausgangswechsel fehlgeschlagen',
+    defaultDev:'Standard',
+    micLabel:(i)=>`Mik ${i}`, speakerLabel:(i)=>`Laut ${i}`,
+    supportsOutTitle:'Nicht unterstützt (nur Chrome)',
+    hz:'Hz', db:'dB',
+    axisLeft:'Antwort dB', axisRight:'PEQ dB',
+    placeholder1:'Führen Sie einen Sweep durch, um den Frequenzgang zu messen',
+    placeholder2:'Klicken Sie links auf «Start»',
+  },
+  ja: {
+    appTitle:'🎧 音響測定', device:'デバイス', input:'入力デバイス',
+    output:'出力デバイス', inputCh:'入力チャンネル', outputCh:'出力チャンネル',
+    chLeft:'左', chRight:'右', chDual:'ステレオ',
+    refresh:'🔄 更新', standby:'待機', micReady:'マイク準備完了',
+    micErr:'マイクエラー', micFail:'マイク起動失敗',
+    level:'入力レベル', adjust:'調整', noise:'▶ ホワイトノイズ',
+    stop:'■ 停止', outVol:'出力音量', inGain:'入力ゲイン',
+    sweep:'スイープ', startSweep:'▶ 開始', stopSweep:'■ 停止',
+    from:'開始', to:'終了', points:'点数', dur:'時間', ms:'ms',
+    filter:'帯域通過',
+    ready:'準備完了', waiting:'待機中', preparing:'準備中…',
+    measuring:'測定中', pointFmt:(c,t,f)=>`点 ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'完了', doneFmt:(n,lo,hi)=>`${n} 点 · ${lo}–${hi} Hz`,
+    error:'エラー', stopped:'停止', aborted:'測定中断',
+    failed:'失敗', noData:'データ不足',
+    dataInfo:(n,lo,hi,t)=>`データ: ${n} 点 · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`インポート: ${n} 点`, importFail:'インポート失敗',
+    noDataExport:'データなし', invalidFile:'無効なファイル',
+    rawResp:'元の応答', peq:'PEQ', corrected:'補正後', leftAxis:'(左)', rightAxis:'(右)',
+    peqTitle:'PEQ', peqAdd:'＋ 追加', peqClear:'クリア',
+    peqEmpty:'PEQ なし — 「追加」をクリック',
+    peqCount:(n)=>`${n}`, peqFreq:'周波数', peqGain:'ゲイン',
+    noDataLabel:'データなし',
+    exportBtn:'📤 エクスポート', importBtn:'📥 インポート',
+    startAudioFirst:'先にオーディオを起動してください',
+    outDevFail:'出力デバイス切替失敗',
+    defaultDev:'システムデフォルト',
+    micLabel:(i)=>`マイク ${i}`, speakerLabel:(i)=>`スピーカー ${i}`,
+    supportsOutTitle:'非対応（Chromeのみ）',
+    hz:'Hz', db:'dB',
+    axisLeft:'応答 dB', axisRight:'PEQ dB',
+    placeholder1:'スイープ測定を実行して周波数特性を取得',
+    placeholder2:'左側の「開始」をクリック',
+  },
+  ko: {
+    appTitle:'🎧 음향 측정', device:'장치', input:'입력 장치',
+    output:'출력 장치', inputCh:'입력 채널', outputCh:'출력 채널',
+    chLeft:'좌', chRight:'우', chDual:'스테레오',
+    refresh:'🔄 새로고침', standby:'대기', micReady:'마이크 준비 완료',
+    micErr:'마이크 오류', micFail:'마이크 시작 실패',
+    level:'입력 레벨', adjust:'조정', noise:'▶ 백색 잡음',
+    stop:'■ 정지', outVol:'출력 볼륨', inGain:'입력 게인',
+    sweep:'스위프', startSweep:'▶ 시작', stopSweep:'■ 정지',
+    from:'시작', to:'종료', points:'포인트', dur:'시간', ms:'ms',
+    filter:'대역 통과',
+    ready:'준비', waiting:'대기 중', preparing:'준비 중…',
+    measuring:'측정 중', pointFmt:(c,t,f)=>`포인트 ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'완료', doneFmt:(n,lo,hi)=>`${n} 포인트 · ${lo}–${hi} Hz`,
+    error:'오류', stopped:'중지', aborted:'측정 중단',
+    failed:'실패', noData:'데이터 부족',
+    dataInfo:(n,lo,hi,t)=>`데이터: ${n} 포인트 · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`가져오기: ${n} 포인트`, importFail:'가져오기 실패',
+    noDataExport:'내보낼 데이터 없음', invalidFile:'잘못된 파일',
+    rawResp:'원래 응답', peq:'PEQ', corrected:'보정됨', leftAxis:'(좌)', rightAxis:'(우)',
+    peqTitle:'PEQ', peqAdd:'＋ 추가', peqClear:'지우기',
+    peqEmpty:'PEQ 없음 — 추가를 클릭하세요',
+    peqCount:(n)=>`${n}`, peqFreq:'주파수', peqGain:'게인',
+    noDataLabel:'데이터 없음',
+    exportBtn:'📤 내보내기', importBtn:'📥 가져오기',
+    startAudioFirst:'오디오를 먼저 시작하세요',
+    outDevFail:'출력 장치 전환 실패',
+    defaultDev:'시스템 기본값',
+    micLabel:(i)=>`마이크 ${i}`, speakerLabel:(i)=>`스피커 ${i}`,
+    supportsOutTitle:'지원되지 않음 (Chrome만 가능)',
+    hz:'Hz', db:'dB',
+    axisLeft:'응답 dB', axisRight:'PEQ dB',
+    placeholder1:'스위프 측정을 실행하여 주파수 응답을 얻으세요',
+    placeholder2:'왼쪽의 「시작」을 클릭하세요',
+  },
+  pt: {
+    appTitle:'🎧 Medição Acústica', device:'Dispositivo', input:'Dispositivo de entrada',
+    output:'Dispositivo de saída', inputCh:'Canal Entrada', outputCh:'Canal Saída',
+    chLeft:'Esquerdo', chRight:'Direito', chDual:'Estéreo',
+    refresh:'🔄 Atualizar', standby:'Espera', micReady:'Microfone pronto',
+    micErr:'Erro microfone', micFail:'Falha no microfone',
+    level:'Nível Entrada', adjust:'Ajustar', noise:'▶ Ruído Branco',
+    stop:'■ Parar', outVol:'Vol. Saída', inGain:'Ganho Entrada',
+    sweep:'Varredura', startSweep:'▶ Iniciar', stopSweep:'■ Parar',
+    from:'Início', to:'Fim', points:'Pontos', dur:'Duração', ms:'ms',
+    filter:'Passa-banda',
+    ready:'Pronto', waiting:'Aguardando', preparing:'Preparando…',
+    measuring:'Medindo', pointFmt:(c,t,f)=>`Ponto ${c}/${t}  ${f.toFixed(0)} Hz`,
+    done:'Concluído', doneFmt:(n,lo,hi)=>`${n} pontos · ${lo}–${hi} Hz`,
+    error:'Erro', stopped:'Parado', aborted:'Medição cancelada',
+    failed:'Falhou', noData:'Dados insuficientes',
+    dataInfo:(n,lo,hi,t)=>`Dados: ${n} pts · ${lo}–${hi} Hz · ${t}`,
+    importOk:(n)=>`Importado: ${n} pts`, importFail:'Falha na importação',
+    noDataExport:'Sem dados', invalidFile:'Arquivo inválido',
+    rawResp:'Resp. Original', peq:'PEQ', corrected:'Corrigido', leftAxis:'(E)', rightAxis:'(D)',
+    peqTitle:'PEQ', peqAdd:'＋ Adicionar', peqClear:'Limpar',
+    peqEmpty:'Sem PEQ — clique Adicionar',
+    peqCount:(n)=>`${n}`, peqFreq:'Freq.', peqGain:'Ganho',
+    noDataLabel:'Sem dados',
+    exportBtn:'📤 Exportar', importBtn:'📥 Importar',
+    startAudioFirst:'Inicie o áudio primeiro',
+    outDevFail:'Falha ao trocar saída',
+    defaultDev:'Padrão Sistema',
+    micLabel:(i)=>`Mic ${i}`, speakerLabel:(i)=>`Alto-falante ${i}`,
+    supportsOutTitle:'Não suportado (apenas Chrome)',
+    hz:'Hz', db:'dB',
+    axisLeft:'Resp. dB', axisRight:'PEQ dB',
+    placeholder1:'Execute uma varredura para medir a resposta de frequência',
+    placeholder2:'Clique em «Iniciar» à esquerda',
+  },
+};
+
+let _lang = 'zh';
+function tr(key) { return STR[_lang] && STR[_lang][key] !== undefined ? STR[_lang][key] : (STR.en[key] || key); }
+function trf(key, ...args) { const v = tr(key); return typeof v === 'function' ? v(...args) : v; }
+
+function applyLanguage(lang) {
+  _lang = lang;
+  document.documentElement.lang = lang;
+  const t = STR[lang] || STR.en;
+  const _ = (el) => { try { return document.querySelector(el); } catch(e) { return null; } };
+  const __ = (el) => { try { return document.querySelectorAll(el); } catch(e) { return []; } };
+  const safe = (fn) => { try { fn(); } catch(e) { console.warn('i18n:', e); } };
+
+  safe(() => document.querySelector('h1').textContent = t.appTitle);
+  safe(() => _('#devicePanel h2').textContent = t.device);
+  safe(() => _('#levelPanel h2').textContent = t.level);
+  safe(() => _('#adjustPanel h2').textContent = t.adjust);
+  safe(() => _('#sweepPanel h2').textContent = t.sweep);
+
+  // 设备面板
+  safe(() => _('#devicePanel .panel-row:nth-child(2) label').textContent = t.input);
+  safe(() => _('#devicePanel .panel-row:nth-child(3) label').textContent = t.inputCh);
+  safe(() => _('#devicePanel .panel-row:nth-child(4) label').textContent = t.output);
+  safe(() => _('#devicePanel .panel-row:nth-child(5) label').textContent = t.outputCh);
+
+  safe(() => { rebuildChannelOptions('inChannel', t); });
+  safe(() => { rebuildChannelOptions('outChannel', t); });
+  safe(() => { $refreshDevices.textContent = t.refresh; });
+  safe(() => { $audioStatus.textContent = t.standby; });
+
+  // 调整面板
+  safe(() => { $playNoise.textContent = t.noise; });
+  safe(() => { $stopNoise.textContent = t.stop; });
+  safe(() => _('#adjustPanel .panel-row:nth-child(3) label').textContent = t.outVol);
+  safe(() => _('#adjustPanel .panel-row:nth-child(4) label').textContent = t.inGain);
+
+  // 测试面板
+  safe(() => { $startSweep.textContent = t.startSweep; });
+  safe(() => { $stopSweep.textContent = t.stopSweep; });
+  safe(() => {
+    const sw = _('#sweepPanel');
+    if (!sw) return;
+    const ll = sw.querySelectorAll('.panel-row label');
+    if (ll[0]) ll[0].textContent = t.from;
+    if (ll[1]) ll[1].textContent = t.to;
+    if (ll[2]) ll[2].textContent = t.points;
+    if (ll[3]) ll[3].textContent = t.dur;
+    // ll[4] 是 chk-label（含 checkbox），安全替换文本
+    if (ll[4]) {
+      const cb = ll[4].querySelector('input[type="checkbox"]');
+      ll[4].textContent = '';
+      if (cb) ll[4].appendChild(cb);
+      ll[4].append(t.filter);
+    }
+    if (ll[5]) ll[5].textContent = 'Q';
+  });
+  // 单位
+  safe(() => {
+    const spans = __('#sweepPanel span[style*="font-size:11px"]');
+    if (spans[0]) spans[0].textContent = t.hz;
+    if (spans[1]) spans[1].textContent = t.hz;
+    if (spans[2]) spans[2].textContent = t.ms;
+  });
+
+  // 状态
+  safe(() => {
+    if (!audio._sweepRunning && !audio._noiseSource) {
+      setStatus('idle', t.ready, t.waiting);
+    }
+  });
+
+  // 图例
+  safe(() => {
+    const items = __('.legend-item');
+    if (items.length >= 4) {
+      // 第0项：原始频响 + (左轴)
+      const c0 = items[0].childNodes;
+      for (const n of c0) if (n.nodeType === 3) { n.textContent = t.rawResp + ' '; break; }
+      const la = items[0].querySelector('span[style*="color:#8b949e"]');
+      if (la) la.textContent = t.leftAxis;
+      // 第1项：PEQ + (右轴)
+      const c1 = items[1].childNodes;
+      for (const n of c1) if (n.nodeType === 3) { n.textContent = t.peq + ' '; break; }
+      const ra = items[1].querySelector('span[style*="color:#8b949e"]');
+      if (ra) ra.textContent = t.rightAxis;
+      // 第2项：校正后
+      const c2 = items[2].childNodes;
+      for (const n of c2) if (n.nodeType === 3) { n.textContent = t.corrected; break; }
+    }
+  });
+
+  // PEQ 面板
+  safe(() => { const el = _('#peqPanel h2'); if (el) el.textContent = t.peqTitle; });
+  safe(() => { $addPeqBtn.textContent = t.peqAdd; });
+  safe(() => { $clearPeqBtn.textContent = t.peqClear; });
+  safe(() => { $peqEmpty.textContent = t.peqEmpty; });
+
+  // 导入导出
+  safe(() => { $exportBtn.textContent = t.exportBtn; });
+  safe(() => { $importBtn.textContent = t.importBtn; });
+  safe(() => {
+    if (freqData && freqData.length > 0) {
+      const lo = Math.round(freqData[0].freq);
+      const hi = Math.round(freqData[freqData.length-1].freq);
+      $dataInfo.textContent = trf('dataInfo', freqData.length, lo, hi, new Date().toLocaleTimeString());
+    } else {
+      $dataInfo.textContent = t.noDataLabel;
+    }
+  });
+
+  safe(() => { renderPEQList(); });
+  safe(() => { chart.draw(); });
+}
+
+function rebuildChannelOptions(selectId, t) {
+  const sel = document.getElementById(selectId);
+  const val = sel.value;
+  sel.innerHTML =
+    `<option value="0">${t.chLeft}</option>` +
+    `<option value="1">${t.chRight}</option>` +
+    `<option value="dual" selected>${t.chDual}</option>`;
+  sel.value = val;
+}
+
+function detectBrowserLang() {
+  const navLang = (navigator.language || navigator.userLanguage || 'en').slice(0,2).toLowerCase();
+  return LANGUAGES.includes(navLang) ? navLang : 'en';
+}
+
+// ========================================================================
+//  AudioEngine — 管理 Web Audio 上下文、设备、节点
+// ========================================================================
+class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.micStream = null;
+    this.micSource = null;
+    this.micGain = null;
+    this.micAnalyser = null;
+    this.masterGain = null;
+    this.masterAnalyser = null;
+    this._running = false;
+    this._noiseSource = null;
+    this._noiseGain = null;
+    this._sweepOsc = null;
+    this._sweepGain = null;
+    this._sweepRunning = false;
+    this._onAudioData = null; // callback (buffer) when mic data arrives
+    this._scriptNode = null;
+    this._inputBuffers = [];
+    this._isRecording = false;
+    this._micPanner = null;
+    this.channelSplitter = null;
+    this.channelGainL = null;
+    this.channelGainR = null;
+    this.channelMerger = null;
+  }
+
+  async init() {
+    if (this.ctx && this.ctx.state !== 'closed') return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 1;
+    this.masterAnalyser = this.ctx.createAnalyser();
+    this.masterAnalyser.fftSize = 1024;
+    // 声道控制：splitter → gainL/gainR → merger
+    this.channelSplitter = this.ctx.createChannelSplitter(2);
+    this.channelGainL = this.ctx.createGain();
+    this.channelGainR = this.ctx.createGain();
+    this.channelMerger = this.ctx.createChannelMerger(2);
+    this.channelGainL.gain.value = 1;
+    this.channelGainR.gain.value = 1;
+    this.masterGain.connect(this.channelSplitter);
+    this.channelSplitter.connect(this.channelGainL, 0, 0);
+    this.channelSplitter.connect(this.channelGainR, 1, 0);
+    this.channelGainL.connect(this.channelMerger, 0, 0);
+    this.channelGainR.connect(this.channelMerger, 0, 1);
+    this.channelMerger.connect(this.masterAnalyser);
+    this.masterAnalyser.connect(this.ctx.destination);
+    // Default out vol
+    this.setOutVolume(-12);
+    // Input chain (built after mic starts)
+  }
+
+  async startMic(deviceId) {
+    if (this.micStream) {
+      this.stopMic();
+    }
+    const constraints = {
+      audio: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      }
+    };
+    this.micStream = await navigator.mediaDevices.getUserMedia(constraints);
+    this.micSource = this.ctx.createMediaStreamSource(this.micStream);
+    this.micGain = this.ctx.createGain();
+    this.micGain.gain.value = 1; // 0dB
+    this.micAnalyser = this.ctx.createAnalyser();
+    this.micAnalyser.fftSize = 2048;
+    this.micSource.connect(this.micGain);
+    this.micGain.connect(this.micAnalyser);
+    // Don't connect mic to destination (no feedback)
+    return true;
+  }
+
+  stopMic() {
+    if (this.micStream) {
+      this.micStream.getTracks().forEach(t => t.stop());
+      this.micStream = null;
+    }
+    this.micSource = null;
+    this.micGain = null;
+    this.micAnalyser = null;
+    this._inputBuffers = [];
+    this._isRecording = false;
+  }
+
+  setOutVolume(dB) {
+    if (!this.masterGain) return;
+    const gain = Math.pow(10, dB / 20);
+    this.masterGain.gain.value = gain;
+  }
+
+  setInGain(dB) {
+    if (!this.micGain) return;
+    const gain = Math.pow(10, dB / 20);
+    this.micGain.gain.value = gain;
+  }
+
+  /** 设置输出声道：'0'=左, '1'=右, 'dual'=立体声 */
+  setOutputChannel(mode) {
+    if (!this.channelGainL) return;
+    if (mode === '0') {
+      this.channelGainL.gain.value = 1;
+      this.channelGainR.gain.value = 0;
+    } else if (mode === '1') {
+      this.channelGainL.gain.value = 0;
+      this.channelGainR.gain.value = 1;
+    } else {
+      this.channelGainL.gain.value = 1;
+      this.channelGainR.gain.value = 1;
+    }
+  }
+
+  /** 切换输出设备（仅 Chrome setSinkId 支持） */
+  async setOutputDevice(deviceId) {
+    if (!this.ctx || typeof this.ctx.setSinkId !== 'function') return false;
+    try {
+      await this.ctx.setSinkId(deviceId);
+      return true;
+    } catch (e) {
+      console.warn('输出设备切换失败:', e);
+      return false;
+    }
+  }
+
+  /** 静态检测当前浏览器是否支持输出设备切换 */
+  static supportsOutputSwitch() {
+    return typeof AudioContext !== 'undefined' &&
+      typeof AudioContext.prototype.setSinkId === 'function';
+  }
+
+  // ---- 白噪声 ----
+  startNoise(volumeDB = -12) {
+    if (!this.ctx || !this.masterGain) return;
+    this.stopNoise();
+    const bufferSize = this.ctx.sampleRate * 2;
+    const buffer = this.ctx.createBuffer(2, bufferSize, this.ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1);
+      }
+    }
+    this._noiseSource = this.ctx.createBufferSource();
+    this._noiseSource.buffer = buffer;
+    this._noiseSource.loop = true;
+    this._noiseGain = this.ctx.createGain();
+    this._noiseGain.gain.value = Math.pow(10, volumeDB / 20);
+    this._noiseSource.connect(this._noiseGain);
+    this._noiseGain.connect(this.masterGain);
+    this._noiseSource.start();
+  }
+
+  stopNoise() {
+    if (this._noiseSource) {
+      try { this._noiseSource.stop(); } catch(e) {}
+      this._noiseSource = null;
+    }
+    this._noiseGain = null;
+  }
+
+  // ---- 扫频测量 ----
+  async runSweepMeasure(freqLow, freqHigh, numPoints, pointDurMs, onProgress, onDone, onError, outChan, inChan, useFilter, filterQ) {
+    if (!this.ctx || !this.micGain) {
+      onError('请先选择输入设备并启动麦克风');
+      return;
+    }
+    if (this._sweepRunning) return;
+    this._sweepRunning = true;
+    this._inputBuffers = [];
+    this._isRecording = true;
+
+    const sampleRate = this.ctx.sampleRate;
+    const freqs = [];
+    const logLow = Math.log(freqLow);
+    const logHigh = Math.log(freqHigh);
+    for (let i = 0; i < numPoints; i++) {
+      const f = Math.exp(logLow + (logHigh - logLow) * i / (numPoints - 1));
+      freqs.push(f);
+    }
+
+    const results = [];
+
+    // Setup ScriptProcessorNode for capture
+    const scriptNode = this.ctx.createScriptProcessor(2048, 2, 2);
+    const inputBuffer = [];
+    let totalSamplesReceived = 0;
+    scriptNode.onaudioprocess = (e) => {
+      if (!this._isRecording) return;
+      const chIdx = (inChan === 'dual') ? 0 : parseInt(inChan);
+      const data = e.inputBuffer.getChannelData(chIdx);
+      inputBuffer.push(new Float32Array(data));
+      totalSamplesReceived += data.length;
+    };
+
+    // Use mute node to avoid mic feedback to speakers
+    const muteGain = this.ctx.createGain();
+    muteGain.gain.value = 0;
+
+    // 可选的带通滤波器：只通过当前播放频率附近的能量，滤除环境噪声
+    let bpFilter = null;
+    if (useFilter) {
+      bpFilter = this.ctx.createBiquadFilter();
+      bpFilter.type = 'bandpass';
+      bpFilter.frequency.value = freqs[0];
+      bpFilter.Q.value = filterQ || 5;
+      this.micGain.connect(bpFilter);
+      bpFilter.connect(scriptNode);
+    } else {
+      this.micGain.connect(scriptNode);
+    }
+    scriptNode.connect(muteGain);
+    muteGain.connect(this.ctx.destination);
+
+    // Create oscillator + gain for sweep
+    const osc = this.ctx.createOscillator();
+    const sweepGain = this.ctx.createGain();
+    sweepGain.gain.value = Math.pow(10, -6/20);
+    osc.type = 'sine';
+    osc.connect(sweepGain);
+    sweepGain.connect(this.masterGain);
+
+    osc.start();
+
+    // 先播放 250ms 让系统稳定，再静音 2000ms，然后开始正式测量
+    await this._sleep(250);
+    sweepGain.gain.value = 0;
+    await this._sleep(2000);
+    sweepGain.gain.value = Math.pow(10, -6/20);
+
+    let stopped = false;
+    const sampleStartPositions = [];
+
+    for (let i = 0; i < numPoints; i++) {
+      if (!this._sweepRunning || stopped) {
+        stopped = true;
+        break;
+      }
+      const freq = freqs[i];
+
+      // 低频需要更长时间稳定：20Hz→3x, 100Hz→1.5x, 1kHz→1x
+      const freqFactor = Math.max(1, Math.min(3, 120 / freq));
+      const actualDur = Math.round(pointDurMs * freqFactor);
+      const actualSamples = Math.floor(sampleRate * actualDur / 1000);
+      const actualSettle = Math.floor(actualSamples * 0.3);
+      const actualMeasure = actualSamples - actualSettle;
+
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      if (bpFilter) bpFilter.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      sampleStartPositions.push(totalSamplesReceived);
+      onProgress(i + 1, numPoints, freq);
+
+      await this._sleep(actualDur);
+
+      // 测量本频率点（跳过 settle 段）
+      const startSample = sampleStartPositions[i];
+      const rms = this._measureBlockRMS(inputBuffer, startSample, totalSamplesReceived,
+                                        actualSettle, actualMeasure);
+      if (rms > 0) {
+        results.push({ freq, rms, dB: 20 * Math.log10(rms) });
+      }
+    }
+
+    // Cleanup
+    osc.stop();
+    // 清理音频节点
+    if (bpFilter) {
+      this.micGain.disconnect(bpFilter);
+      bpFilter.disconnect();
+    } else {
+      this.micGain.disconnect(scriptNode);
+    }
+    scriptNode.disconnect();
+    muteGain.disconnect();
+    this._isRecording = false;
+    this._sweepRunning = false;
+
+    if (stopped) {
+      onDone(null, true);
+      return;
+    }
+
+    // Normalize: shift so max = 0 dB
+    if (results.length > 0) {
+      const maxDB = Math.max(...results.map(r => r.dB));
+      results.forEach(r => { r.dB_norm = r.dB - maxDB; });
+    }
+
+    onDone(results, false);
+  }
+
+  /** RMS from a specific sample range in the flat buffer, skipping settle */
+  _measureBlockRMS(buffer, startSample, totalSamples, settleCount, measureCount) {
+    let totalLen = 0;
+    for (let i = 0; i < buffer.length; i++) totalLen += buffer[i].length;
+
+    const bufBeforeStart = startSample;
+    const samplesAfterStart = totalLen - bufBeforeStart;
+    if (samplesAfterStart < settleCount + 10) return 0;
+
+    const measureStart = bufBeforeStart + settleCount;
+    const available = totalLen - measureStart;
+    const take = Math.min(available, measureCount);
+
+    let sumSq = 0;
+    let copied = 0;
+    let cursor = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const chunk = buffer[i];
+      const chunkStart = cursor;
+      const chunkEnd = cursor + chunk.length;
+      cursor = chunkEnd;
+
+      if (chunkEnd <= measureStart) continue;
+      if (chunkStart >= measureStart + take) break;
+
+      const localStart = Math.max(0, measureStart - chunkStart);
+      const localEnd = Math.min(chunk.length, measureStart + take - chunkStart);
+      for (let j = localStart; j < localEnd; j++) {
+        sumSq += chunk[j] * chunk[j];
+        copied++;
+      }
+    }
+
+    if (copied < 10) return 0;
+    return Math.sqrt(sumSq / copied);
+  }
+
+  abortSweep() {
+    this._sweepRunning = false;
+    this._isRecording = false;
+  }
+
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  close() {
+    this.stopNoise();
+    this.abortSweep();
+    this.stopMic();
+    if (this.ctx) {
+      this.ctx.close();
+      this.ctx = null;
+    }
+  }
+}
+
+// ========================================================================
+//  PEQManager — 管理参数均衡器
+// ========================================================================
+class PEQManager {
+  constructor() {
+    this.list = []; // {id, freq, gain, Q}
+    this._nextId = 1;
+    this._onChange = null;
+  }
+
+  onChange(cb) { this._onChange = cb; }
+
+  add(freq = 1000, gain = 0, Q = 1.0) {
+    const peq = { id: this._nextId++, freq, gain, Q };
+    this.list.push(peq);
+    this._notify();
+    return peq;
+  }
+
+  remove(id) {
+    this.list = this.list.filter(p => p.id !== id);
+    this._notify();
+  }
+
+  update(id, props) {
+    const peq = this.list.find(p => p.id === id);
+    if (!peq) return;
+    Object.assign(peq, props);
+    this._notify();
+  }
+
+  clear() {
+    this.list = [];
+    this._notify();
+  }
+
+  _notify() {
+    if (this._onChange) this._onChange(this.list);
+  }
+
+  /** 计算在给定频率下的总增益 (dB)，使用 peaking filter 公式 */
+  getGainAt(freq, sampleRate = 48000) {
+    let totalDB = 0;
+    for (const peq of this.list) {
+      const A = Math.pow(10, peq.gain / 40);
+      const w0 = 2 * Math.PI * peq.freq / sampleRate;
+      const alpha = Math.sin(w0) / (2 * peq.Q);
+
+      // Peaking filter transfer magnitude
+      const b0 = 1 + alpha * A;
+      const b1 = -2 * Math.cos(w0);
+      const b2 = 1 - alpha * A;
+      const a0 = 1 + alpha / A;
+      const a1 = -2 * Math.cos(w0);
+      const a2 = 1 - alpha / A;
+
+      // Evaluate at given frequency
+      const w = 2 * Math.PI * freq / sampleRate;
+      const cosW = Math.cos(w);
+      const sinW = Math.sin(w);
+      const numR = b0 + b1 * cosW + b2 * Math.cos(2 * w);
+      const numI = b1 * sinW + b2 * Math.sin(2 * w);
+      const denR = a0 + a1 * cosW + a2 * Math.cos(2 * w);
+      const denI = a1 * sinW + a2 * Math.sin(2 * w);
+      const magSq = (numR * numR + numI * numI) / (denR * denR + denI * denI);
+      const dB = 10 * Math.log10(Math.max(magSq, 1e-12));
+      totalDB += dB;
+    }
+    return totalDB;
+  }
+
+  /** 获取所有 PEQ 在多个频率点上的增益数组 */
+  getResponse(freqs, sampleRate = 48000) {
+    return freqs.map(f => this.getGainAt(f, sampleRate));
+  }
+
+  /** 获取 PEQ 组合在频响上的校正结果 */
+  applyCorrection(originalFreqs, originalDB, sampleRate = 48000) {
+    const peqGains = this.getResponse(originalFreqs, sampleRate);
+    return originalDB.map((db, i) => db + peqGains[i]);
+  }
+}
+
+// ========================================================================
+//  自动 PEQ — 根据频响数据生成最优 PEQ 参数
+// ========================================================================
+function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
+  if (!freqData || freqData.length < 5) return [];
+
+  const freqs = freqData.map(d => d.freq);
+  const N = freqData.length;
+
+  // 残差 = 当前频响 - 目标增益
+  let residual = freqData.map(d => d.dB_norm - targetDB);
+
+  // 频率权重：只在指定范围内做平直
+  if (freqLow && freqHigh) {
+    for (let i = 0; i < N; i++) {
+      if (freqs[i] < freqLow || freqs[i] > freqHigh) residual[i] = 0;
+    }
+  }
+
+  // 保存原始残差（用于增益计算）
+  const rawResidual = residual.slice();
+
+  // 预滤波
+  const smoothPasses = count > 20 ? Math.min(12, count - 15) : Math.max(3, Math.min(12, 14 - count * 0.4));
+  for (let pass = 0; pass < smoothPasses; pass++) {
+    const prev = residual.slice();
+    for (let i = 2; i < N - 2; i++) {
+      residual[i] = (prev[i-2] + prev[i-1] + prev[i] + prev[i+1] + prev[i+2]) / 5;
+    }
+  }
+
+  // peaking filter 在指定频率的增益
+  function peakingGain(f0, gainDB, Q, freq) {
+    const A = Math.pow(10, gainDB / 40);
+    const w0 = 2 * Math.PI * f0 / 48000;
+    const alpha = Math.sin(w0) / (2 * Q);
+    const b0 = 1 + alpha * A, b1 = -2 * Math.cos(w0), b2 = 1 - alpha * A;
+    const a0 = 1 + alpha / A, a1 = -2 * Math.cos(w0), a2 = 1 - alpha / A;
+    const w = 2 * Math.PI * freq / 48000;
+    const c = Math.cos(w), s = Math.sin(w);
+    const nr = b0 + b1*c + b2*Math.cos(2*w);
+    const ni = b1*s + b2*Math.sin(2*w);
+    const dr = a0 + a1*c + a2*Math.cos(2*w);
+    const di = a1*s + a2*Math.sin(2*w);
+    return 10 * Math.log10(Math.max((nr*nr+ni*ni)/(dr*dr+di*di), 1e-12));
+  }
+
+  // 计算 count 个 PEQ 的叠加曲线在采样点的总增益
+  function computeTotalGain(peqFreqs, gains, Qs, sampleFreqs) {
+    return sampleFreqs.map((f, i) => {
+      let total = 0;
+      for (let j = 0; j < peqFreqs.length; j++) {
+        total += peakingGain(peqFreqs[j], gains[j], Qs[j], f);
+      }
+      return total;
+    });
+  }
+
+  // 计算 RMS 误差
+  function computeError(target, actual) {
+    let sumSq = 0;
+    for (let i = 0; i < target.length; i++) {
+      const d = target[i] - actual[i];
+      sumSq += d * d;
+    }
+    return Math.sqrt(sumSq / target.length);
+  }
+
+  // 正则化最小二乘求解器（固定 Q）
+  function solveGains(peqFreqs, Qs, sampleFreqs, target, lambda) {
+    const n = peqFreqs.length;
+    const A = [];
+    for (let i = 0; i < n; i++) {
+      A[i] = [];
+      for (let j = 0; j < n; j++) {
+        A[i][j] = peakingGain(peqFreqs[j], 1, Qs[j], sampleFreqs[i]);
+      }
+    }
+    // AtA = A^T * A + λ²I
+    const AtA = [];
+    const Atb = [];
+    for (let i = 0; i < n; i++) {
+      AtA[i] = [];
+      for (let j = 0; j < n; j++) {
+        let sum = 0;
+        for (let k = 0; k < n; k++) sum += A[k][i] * A[k][j];
+        AtA[i][j] = sum;
+      }
+      AtA[i][i] += lambda * lambda;
+      let sum = 0;
+      for (let k = 0; k < n; k++) sum += A[k][i] * target[k];
+      Atb.push(sum);
+    }
+    // 高斯消元
+    const m = n;
+    const M = AtA.map((row, i) => [...row, Atb[i]]);
+    for (let col = 0; col < m - 1; col++) {
+      let maxRow = col;
+      for (let row = col + 1; row < m; row++) {
+        if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+      }
+      [M[col], M[maxRow]] = [M[col], M[maxRow]];
+      if (Math.abs(M[col][col]) < 1e-12) continue;
+      for (let row = col + 1; row < m; row++) {
+        const factor = M[row][col] / M[col][col];
+        for (let j = col; j <= m; j++) M[row][j] -= factor * M[col][j];
+      }
+    }
+    const x = new Array(m).fill(0);
+    for (let i = m - 1; i >= 0; i--) {
+      if (Math.abs(M[i][i]) < 1e-12) continue;
+      x[i] = M[i][m];
+      for (let j = i + 1; j < m; j++) x[i] -= M[i][j] * x[j];
+      x[i] /= M[i][i];
+    }
+    return x;
+  }
+
+  // ======== 极值点排序 + AutoEq Q 公式 ========
+  // 一次性找出所有显著极值点
+  const allPeaks = [];
+  for (let i = 4; i < residual.length - 4; i++) {
+    if (Math.abs(residual[i]) < 0.3) continue;
+    const isPeak = residual[i] > residual[i-1] && residual[i] > residual[i+1] && residual[i] >= residual[i-2] && residual[i] >= residual[i+2];
+    const isValley = residual[i] < residual[i-1] && residual[i] < residual[i+1] && residual[i] <= residual[i-2] && residual[i] <= residual[i+2];
+    if (!isPeak && !isValley) continue;
+
+    // 测量半高宽（用平滑后残差）
+    const peakAbs = Math.abs(residual[i]);
+    const half = peakAbs / 2;
+    let left = i, right = i;
+    for (let j = i - 1; j >= 0; j--) {
+      if (Math.abs(residual[j]) > peakAbs) break;
+      if (Math.abs(Math.abs(residual[j]) - half) < Math.abs(Math.abs(residual[left]) - half)) left = j;
+    }
+    for (let j = i + 1; j < residual.length; j++) {
+      if (Math.abs(residual[j]) > peakAbs) break;
+      if (Math.abs(Math.abs(residual[j]) - half) < Math.abs(Math.abs(residual[right]) - half)) right = j;
+    }
+    const octBW = Math.log2(freqs[Math.min(right, residual.length-1)] / freqs[Math.max(0, left)]);
+    const width = Math.max(0.05, octBW);
+    const score = width * width * Math.sqrt(Math.abs(rawResidual[i]));
+    allPeaks.push({ idx: i, freq: freqs[i], gain: rawResidual[i], q: 2, score });
+  }
+
+  // 按面积降序排列，逐步选取，确保相邻 PEQ 频率间隔 ≥ 1.3 倍
+  allPeaks.sort((a, b) => b.score - a.score);
+  const selected = [];
+  for (const p of allPeaks) {
+    if (selected.length >= count) break;
+    // 检查与已选 PEQ 的频率间隔
+    let tooClose = false;
+    for (const s of selected) {
+      const ratio = Math.max(p.freq, s.freq) / Math.min(p.freq, s.freq);
+      if (ratio < 1.3) { tooClose = true; break; }
+    }
+    if (!tooClose) selected.push(p);
+  }
+  // 按频率升序排列
+  selected.sort((a, b) => a.freq - b.freq);
+
+  // ======== 局部优化：微调每个 PEQ 的 gain 和 Q ========
+  // 转成可变数组，gain = 补偿增益（与残差反号）
+  const bands = selected.map(p => ({
+    freq: p.freq,
+    gain: Math.max(-20, Math.min(20, -p.gain)),
+    Q: 2.0
+  })).filter(p => Math.abs(p.gain) >= 0.3);
+
+  if (bands.length > 0) {
+    // 计算第 k 个 band 在局部窗口内的 RMS 误差
+    // （局部窗口为 [freq/2, freq*2]，约 ±1 倍频程）
+    function _localErr(k, testGain, testQ) {
+      const f0 = bands[k].freq;
+      const lo = f0 / 2, hi = f0 * 2;
+      let sumSq = 0, cnt = 0;
+      for (let i = 0; i < N; i++) {
+        const f = freqs[i];
+        if (f < lo || f > hi) continue;
+        let total = 0;
+        for (let j = 0; j < bands.length; j++) {
+          const g = (j === k) ? testGain : bands[j].gain;
+          const q = (j === k) ? testQ : bands[j].Q;
+          total += peakingGain(bands[j].freq, g, q, f);
+        }
+        // PEQ 总和应抵消残差：total ≈ -rawResidual
+        const err = total + rawResidual[i];
+        sumSq += err * err;
+        cnt++;
+      }
+      return cnt > 0 ? Math.sqrt(sumSq / cnt) : Infinity;
+    }
+
+    // 对第 k 个 band 执行二维网格搜索
+    function _optimizeOne(k) {
+      const g0 = bands[k].gain, q0 = bands[k].Q;
+      let bestG = g0, bestQ = q0, bestE = _localErr(k, g0, q0);
+
+      // 粗网格：Q ∈ [0.3, 20]，增益在初始值 ± 范围
+      const gSpan = Math.max(6, Math.abs(g0) * 0.6);
+      const qC = [0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 15.0, 20.0];
+      for (const q of qC) {
+        for (let gi = -6; gi <= 6; gi++) {
+          const g = g0 + gi * gSpan / 6;
+          if (Math.abs(g) > 20) continue;
+          const e = _localErr(k, g, q);
+          if (e < bestE) { bestE = e; bestG = g; bestQ = q; }
+        }
+      }
+
+      // 细网格：围绕粗最优值精细扫描
+      for (let gi = -8; gi <= 8; gi++) {
+        const g = bestG + gi * 0.2;
+        if (Math.abs(g) > 20) continue;
+        for (let qi = -8; qi <= 8; qi++) {
+          const q = Math.max(0.1, bestQ + qi * 0.15);
+          const e = _localErr(k, g, q);
+          if (e < bestE) { bestE = e; bestG = g; bestQ = q; }
+        }
+      }
+      bands[k].gain = Math.round(bestG * 10) / 10;
+      bands[k].Q = Math.round(bestQ * 10) / 10;
+    }
+
+    // 迭代 2 轮：每轮逐个优化所有 band
+    for (let r = 0; r < 2; r++) {
+      for (let k = 0; k < bands.length; k++) _optimizeOne(k);
+    }
+  }
+
+  const result = bands.map(p => ({
+    freq: Math.round(p.freq),
+    gain: p.gain,
+    Q: p.Q
+  }));
+
+  return result;
+}
+
+// ========================================================================
+//  ChartRenderer — Canvas 绘图
+// ========================================================================
+class ChartRenderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this._freqData = null; // [{freq, dB_norm}]
+    this._peqManager = null;
+    this._dpr = window.devicePixelRatio || 1;
+    this.resize();
+    window.addEventListener('resize', () => this.resize());
+  }
+
+  resize() {
+    // 重新读取 DPR 以支持浏览器 zoom 缩放
+    this._dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    const w = rect.width;
+    const h = Math.max(260, w * 0.45);
+    this.canvas.style.width = w + 'px';
+    this.canvas.style.height = h + 'px';
+    this.canvas.width = w * this._dpr;
+    this.canvas.height = h * this._dpr;
+    this.ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+    this._w = w;
+    this._h = h;
+    this.draw();
+  }
+
+  setFreqData(data) {
+    this._freqData = data;
+    this.draw();
+  }
+
+  setPEQManager(mgr) {
+    this._peqManager = mgr;
+    this.draw();
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    const w = this._w;
+    const h = this._h;
+    if (!w || !h) return;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid
+    this._drawGrid(ctx, w, h);
+
+    const data = this._freqData;
+    if (!data || data.length < 3) {
+      this._drawPlaceholder(ctx, w, h);
+      return;
+    }
+
+    const margin = { top: 18, bottom: 30, left: 50, right: 20 };
+    const plotW = w - margin.left - margin.right;
+    const plotH = h - margin.top - margin.bottom;
+
+    const freqs = data.map(d => d.freq);
+    const rawDB = data.map(d => d.dB_norm);
+
+    // === 双 Y 轴范围计算 ===
+    let correctedDB = null;
+    let peqGains = null;
+    if (this._peqManager && this._peqManager.list.length > 0) {
+      peqGains = this._peqManager.getResponse(freqs, 48000);
+      correctedDB = rawDB.map((db, i) => db + peqGains[i]);
+    }
+
+    // 左轴：频响数据以数据范围居中（0dB 不一定在中间）
+    let leftVals = [...rawDB];
+    if (correctedDB) leftVals = leftVals.concat(correctedDB);
+    const lDataMin = Math.min(...leftVals);
+    const lDataMax = Math.max(...leftVals);
+    let lRange = lDataMax - lDataMin;
+    if (lRange < 6) lRange = 6;
+    const lCenter = (lDataMin + lDataMax) / 2;
+    const lHalf = lRange * 0.75;
+    const lMin = lCenter - lHalf;
+    const lMax = lCenter + lHalf;
+
+    // 右轴：PEQ 数据以 0dB 对称居中
+    let rightMaxAbs = 5;
+    if (peqGains) rightMaxAbs = Math.max(...peqGains.map(v => Math.abs(v)), 5);
+    const rightPad = Math.max(3, rightMaxAbs * 0.2);
+    const rMin = -(rightMaxAbs + rightPad);
+    const rMax = rightMaxAbs + rightPad;
+
+    document.getElementById('yRangeLabel').textContent =
+      `L ${lMin.toFixed(0)}~${lMax.toFixed(0)}  R ${rMin.toFixed(0)}~${rMax.toFixed(0)} dB`;
+
+    // Axes (双Y + 精细X)
+    this._drawAxes(ctx, margin, w, h, plotW, plotH, freqs, lMin, lMax, rMin, rMax);
+
+    const logLow = Math.log(freqs[0]);
+    const logHigh = Math.log(freqs[freqs.length - 1]);
+    const xScale = (f) => {
+      const p = (Math.log(f) - logLow) / (logHigh - logLow);
+      return margin.left + p * plotW;
+    };
+    const yScaleL = (db) => margin.top + plotH - ((db - lMin) / (lMax - lMin)) * plotH;
+    const yScaleR = (db) => margin.top + plotH - ((db - rMin) / (rMax - rMin)) * plotH;
+
+    // === Draw original frequency response (左轴) ===
+    ctx.beginPath();
+    for (let i = 0; i < data.length; i++) {
+      const x = xScale(freqs[i]);
+      const y = yScaleL(rawDB[i]);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#58a6ff';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(xScale(freqs[0]), margin.top + plotH);
+    for (let i = 0; i < data.length; i++) {
+      ctx.lineTo(xScale(freqs[i]), yScaleL(rawDB[i]));
+    }
+    ctx.lineTo(xScale(freqs[freqs.length - 1]), margin.top + plotH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(88, 166, 255, 0.06)';
+    ctx.fill();
+
+    // === Draw PEQ curve (右轴) ===
+    if (peqGains) {
+      ctx.beginPath();
+      for (let i = 0; i < freqs.length; i++) {
+        const x = xScale(freqs[i]);
+        const y = yScaleR(peqGains[i]);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#da3633';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // === Draw corrected response (左轴) ===
+    if (correctedDB) {
+      ctx.beginPath();
+      for (let i = 0; i < correctedDB.length; i++) {
+        const x = xScale(freqs[i]);
+        const y = yScaleL(correctedDB[i]);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = '#3fb950';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+
+    // === Draw PEQ markers at bottom ===
+    if (this._peqManager && this._peqManager.list.length > 0) {
+      for (const peq of this._peqManager.list) {
+        if (peq.freq < freqs[0] || peq.freq > freqs[freqs.length - 1]) continue;
+        const x = xScale(peq.freq);
+        ctx.beginPath();
+        ctx.arc(x, margin.top + plotH + 8, 4, 0, Math.PI * 2);
+        ctx.fillStyle = peq.gain >= 0 ? '#da3633' : '#58a6ff';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(x, margin.top + plotH + 4);
+        ctx.lineTo(x, margin.top + plotH + 12);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  _drawGrid(ctx, w, h) {
+    const steps = 10;
+    ctx.strokeStyle = '#21262d';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= steps; i++) {
+      const y = (h / steps) * i;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+  }
+
+  _drawAxes(ctx, margin, w, h, plotW, plotH, freqs, lMin, lMax, rMin, rMax) {
+    const logLow = Math.log(freqs[0]);
+    const logHigh = Math.log(freqs[freqs.length - 1]);
+    const xPos = (f) => {
+      const p = (Math.log(f) - logLow) / (logHigh - logLow);
+      return margin.left + p * plotW;
+    };
+
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+
+    // ---- X axis 精细频率标注 ----
+    // 生成候选标注点
+    const candidates = [];
+    for (let f = 10; f <= 100; f += 10) candidates.push(f);
+    for (let f = 100; f <= 1000; f += 100) candidates.push(f);
+    for (let f = 1000; f <= 10000; f += 1000) candidates.push(f);
+    for (let f = 10000; f <= 20000; f += 2000) candidates.push(f);
+    // 去重 + 过滤范围
+    const fMin = freqs[0], fMax = freqs[freqs.length - 1];
+    const unique = [...new Set(candidates)].filter(f => f >= fMin && f <= fMax);
+    // 按像素位置去重叠（至少间隔 35px）
+    const labels = [];
+    let lastX = -Infinity;
+    for (const f of unique) {
+      const x = xPos(f);
+      if (x - lastX >= 35) { labels.push(f); lastX = x; }
+    }
+
+    for (const f of labels) {
+      const x = xPos(f);
+      ctx.fillText(f >= 1000 ? `${(f/1000).toFixed(f%1000===0?0:1)}k` : `${f}`, x, h - 8);
+      ctx.beginPath();
+      ctx.moveTo(x, margin.top);
+      ctx.lineTo(x, margin.top + plotH);
+      ctx.strokeStyle = '#1c2128';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    // ---- 左 Y 轴 (频响) ----
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#58a6ff';
+    ctx.font = '9px -apple-system, sans-serif';
+    const numYL = 6;
+    for (let i = 0; i <= numYL; i++) {
+      const db = lMin + (lMax - lMin) * i / numYL;
+      const y = margin.top + plotH - (i / numYL) * plotH;
+      ctx.fillText(`${db.toFixed(1)}`, margin.left - 6, y + 3);
+      // 网格线（基于左轴）
+      ctx.beginPath();
+      ctx.moveTo(margin.left, y);
+      ctx.lineTo(margin.left + plotW, y);
+      ctx.strokeStyle = i === Math.round(numYL / 2) ? '#30363d' : '#1c2128';
+      ctx.lineWidth = i === Math.round(numYL / 2) ? 1 : 0.5;
+      ctx.stroke();
+    }
+    // 左轴标签
+    ctx.save();
+    ctx.translate(10, margin.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#58a6ff';
+    ctx.font = '9px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(typeof tr !== 'undefined' ? tr('axisLeft') : '频响 dB', 0, 0);
+    ctx.restore();
+
+    // ---- 右 Y 轴 (PEQ) ----
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#da3633';
+    ctx.font = '9px -apple-system, sans-serif';
+    const numYR = 6;
+    for (let i = 0; i <= numYR; i++) {
+      const db = rMin + (rMax - rMin) * i / numYR;
+      const y = margin.top + plotH - (i / numYR) * plotH;
+      ctx.fillText(`${db.toFixed(1)}`, margin.left + plotW + 6, y + 3);
+    }
+    // 右轴标签
+    ctx.save();
+    ctx.translate(w - 8, margin.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = '#da3633';
+    ctx.font = '9px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(typeof tr !== 'undefined' ? tr('axisRight') : 'PEQ dB', 0, 0);
+    ctx.restore();
+
+    // Hz 单位
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#6e7681';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.fillText(typeof tr !== 'undefined' ? tr('hz') : 'Hz', w / 2, h - 2);
+  }
+
+  _drawPlaceholder(ctx, w, h) {
+    const p1 = typeof tr !== 'undefined' ? tr('placeholder1') : '执行扫频测量以获取频率响应';
+    const p2 = typeof tr !== 'undefined' ? tr('placeholder2') : '点击左侧「开始扫频」按钮';
+    ctx.fillStyle = '#30363d';
+    ctx.font = '14px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(p1, w / 2, h / 2 - 6);
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.fillStyle = '#484f58';
+    ctx.fillText(p2, w / 2, h / 2 + 18);
+  }
+}
+
+// ========================================================================
+//  Main App
+// ========================================================================
+const audio = new AudioEngine();
+const peqMgr = new PEQManager();
+let chart = null;
+let freqData = null; // saved measurement
+
+// ---- DOM refs ----
+const $inDevice = document.getElementById('inDevice');
+const $outDevice = document.getElementById('outDevice');
+const $inChannel = document.getElementById('inChannel');
+const $outChannel = document.getElementById('outChannel');
+const $audioStatus = document.getElementById('audioStatus');
+const $playNoise = document.getElementById('playNoiseBtn');
+const $stopNoise = document.getElementById('stopNoiseBtn');
+const $outVolume = document.getElementById('outVolume');
+const $outVolumeVal = document.getElementById('outVolumeVal');
+const $inGain = document.getElementById('inGain');
+const $inGainVal = document.getElementById('inGainVal');
+const $startSweep = document.getElementById('startSweepBtn');
+const $stopSweep = document.getElementById('stopSweepBtn');
+const $sweepFreqLow = document.getElementById('sweepFreqLow');
+const $sweepFreqHigh = document.getElementById('sweepFreqHigh');
+const $sweepPoints = document.getElementById('sweepPoints');
+const $pointDuration = document.getElementById('pointDuration');
+const $measureStatus = document.getElementById('measureStatus');
+const $statusDetail = document.getElementById('statusDetail');
+const $addPeqBtn = document.getElementById('addPeqBtn');
+const $clearPeqBtn = document.getElementById('clearPeqBtn');
+const $peqListEl = document.getElementById('peqList');
+const $peqEmpty = document.getElementById('peqEmpty');
+const $peqCount = document.getElementById('peqCount');
+const $refreshDevices = document.getElementById('refreshDevices');
+const $exportBtn = document.getElementById('exportBtn');
+const $importBtn = document.getElementById('importBtn');
+const $importFile = document.getElementById('importFile');
+const $dataInfo = document.getElementById('dataInfo');
+const $meterFill = document.getElementById('meterFill');
+const $levelDB = document.getElementById('levelDB');
+const $levelLabel = document.getElementById('levelLabel');
+
+// ---- 输入电平表 (requestAnimationFrame 驱动) ----
+let _meterRaf = null;
+function updateLevelMeter() {
+  _meterRaf = requestAnimationFrame(updateLevelMeter);
+  const analyser = audio.micAnalyser;
+  if (!analyser) {
+    $meterFill.style.width = '0%';
+    $levelDB.textContent = '—∞ dB';
+    return;
+  }
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  // RMS
+  let sumSq = 0;
+  for (let i = 0; i < buf.length; i++) sumSq += buf[i] * buf[i];
+  const rms = Math.sqrt(sumSq / buf.length);
+  // dBFS (RMS), reference 1.0 = 0 dB
+  const dB = rms > 1e-9 ? 20 * Math.log10(rms) : -100;
+  // 显示范围 -70 ~ 0 dB，信号再弱也保留 1% 宽度让条可见
+  const clamped = Math.max(-70, Math.min(0, dB));
+  const pct = ((clamped + 70) / 70) * 99 + 1;
+  $meterFill.style.width = pct + '%';
+  if (dB <= -85) {
+    $levelDB.textContent = '—∞ dB';
+  } else if (dB <= -70) {
+    $levelDB.textContent = `< -70 dB`;
+  } else {
+    $levelDB.textContent = `${dB.toFixed(1)} dB`;
+  }
+}
+
+function startLevelMeter() {
+  if (_meterRaf) cancelAnimationFrame(_meterRaf);
+  $levelLabel.textContent = tr('micReady');
+  updateLevelMeter();
+}
+function stopLevelMeter() {
+  if (_meterRaf) { cancelAnimationFrame(_meterRaf); _meterRaf = null; }
+  $meterFill.style.width = '0%';
+  $levelDB.textContent = '—∞ dB';
+  $levelLabel.textContent = '—';
+}
+
+// ---- 可拖动分隔条 ----
+(function initResizer() {
+  const resizer = document.getElementById('resizer');
+  const leftCol = document.querySelector('.left-col');
+  let startX = 0, startW = 0;
+
+  function onDrag(e) {
+    const dx = e.clientX - startX;
+    const newW = Math.max(200, Math.min(500, startW + dx));
+    leftCol.style.width = newW + 'px';
+  }
+
+  function stopDrag() {
+    resizer.classList.remove('resizing');
+    document.removeEventListener('mousemove', onDrag);
+    document.removeEventListener('mouseup', stopDrag);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    // 触发 canvas 重绘
+    if (chart) setTimeout(() => chart.resize(), 50);
+  }
+
+  resizer.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startW = leftCol.getBoundingClientRect().width;
+    resizer.classList.add('resizing');
+    document.addEventListener('mousemove', onDrag);
+    document.addEventListener('mouseup', stopDrag);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+})();
+// ---- Init ----
+async function init() {
+  chart = new ChartRenderer(document.getElementById('freqChart'));
+  peqMgr.onChange(() => {
+    renderPEQList();
+    chart.setPEQManager(peqMgr);
+    if (freqData) chart.setFreqData(freqData);
+  });
+
+  // 先枚举设备（内部会尝试请求权限）
+  await enumerateDevices();
+  setupEventListeners();
+  lockDevices(false);
+  // 应用浏览器语言
+  const browserLang = detectBrowserLang();
+  document.getElementById('langSelect').value = browserLang;
+  applyLanguage(browserLang);
+  setStatus('idle', tr('ready'), tr('waiting'));
+
+  // 尝试初始化音频（浏览器可能因用户手势要求阻止自动启动）
+  // 用户点击任意按钮时会自动初始化
+}
+
+// ---- Device enumeration ----
+async function enumerateDevices() {
+  // 先设置默认选项，确保枚举失败时两个选择框也不为空
+  $inDevice.innerHTML = '<option value="">' + tr('defaultDev') + '</option>';
+  $outDevice.innerHTML = '<option value="default" selected>' + tr('defaultDev') + '</option>';
+  $outDevice.disabled = false;
+  $inDevice.disabled = false;
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+    const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+
+    // 输入设备
+    if (audioInputs.length > 0) {
+      $inDevice.innerHTML = audioInputs.map((d, i) =>
+        `<option value="${d.deviceId}">${d.label || trf('micLabel', i+1)}</option>`
+      ).join('') + '<option value="">' + tr('defaultDev') + '</option>';
+    } else {
+      $inDevice.innerHTML = '<option value="">' + tr('defaultDev') + '</option>';
+    }
+
+    // 输出设备：至少提供一个默认选项
+    let outHtml = '';
+    if (audioOutputs.length > 0) {
+      outHtml = audioOutputs.map((d, i) =>
+        `<option value="${d.deviceId}">${d.label || trf('speakerLabel', i+1)}</option>`
+      ).join('');
+    }
+    outHtml += '<option value="default" selected>' + tr('defaultDev') + '</option>';
+    $outDevice.innerHTML = outHtml;
+  } catch (e) {
+    console.warn('设备枚举失败:', e);
+  }
+  // 检测输出设备切换支持，不支持则锁死选择框
+  const supportsOut = AudioEngine.supportsOutputSwitch();
+  $outDevice.disabled = !supportsOut;
+  if (!supportsOut) {
+    $outDevice.title = tr('supportsOutTitle');
+  }
+}
+
+// ---- Audio initialization & mic start ----
+async function ensureAudioReady() {
+  await audio.init();
+  const deviceId = $inDevice.value || undefined;
+  try {
+    await audio.startMic(deviceId);
+    audio.setOutVolume(parseFloat($outVolume.value));
+    audio.setInGain(parseFloat($inGain.value));
+    audio.setOutputChannel(document.getElementById('outChannel').value);
+    $audioStatus.className = 'status-badge status-done';
+    $audioStatus.textContent = tr('micReady');
+    startLevelMeter();
+    return true;
+  } catch (e) {
+    console.error('麦克风启动失败:', e);
+    stopLevelMeter();
+    $audioStatus.className = 'status-badge status-error';
+    $audioStatus.textContent = tr('micErr');
+    setStatus('error', tr('micErr'), tr('micFail') + ': ' + e.message);
+    return false;
+  }
+}
+
+function setStatus(type, badge, detail) {
+  $measureStatus.className = `status-badge status-${type}`;
+  $measureStatus.textContent = badge;
+  $statusDetail.textContent = detail;
+}
+
+/** 播放时锁定/解锁设备与声道控件 */
+function lockDevices(locked) {
+  $inDevice.disabled = !!locked;
+  $inChannel.disabled = !!locked;
+  $outChannel.disabled = !!locked;
+  $refreshDevices.disabled = !!locked;
+  const canSwitch = AudioEngine.supportsOutputSwitch();
+  $outDevice.disabled = !!locked || !canSwitch;
+}
+
+// ---- Event Listeners ----
+function setupEventListeners() {
+  // Volume & Gain
+  $outVolume.addEventListener('input', () => {
+    const v = parseFloat($outVolume.value);
+    $outVolumeVal.textContent = v;
+    audio.setOutVolume(v);
+  });
+  $inGain.addEventListener('input', () => {
+    const v = parseFloat($inGain.value);
+    $inGainVal.textContent = v;
+    audio.setInGain(v);
+  });
+
+  // Noise — 播放时禁用扫频按钮（互斥），开启电平表
+  $playNoise.addEventListener('click', async () => {
+    if (!audio.ctx || audio.ctx.state === 'closed') {
+      const ok = await ensureAudioReady();
+      if (!ok) return;
+    }
+    if (audio.ctx.state === 'suspended') await audio.ctx.resume();
+    audio.startNoise(parseFloat($outVolume.value));
+    startLevelMeter();
+    lockDevices(true);
+    $playNoise.disabled = true;
+    $stopNoise.disabled = false;
+    $startSweep.disabled = true;       // 互斥
+  });
+  $stopNoise.addEventListener('click', () => {
+    audio.stopNoise();
+    stopLevelMeter();
+    lockDevices(false);
+    $playNoise.disabled = false;
+    $stopNoise.disabled = true;
+    $startSweep.disabled = false;      // 恢复
+  });
+
+  // Sweep — 开始时禁用白噪声按钮（互斥），开启电平表
+  $startSweep.addEventListener('click', async () => {
+    if (!audio.ctx || audio.ctx.state === 'closed') {
+      const ok = await ensureAudioReady();
+      if (!ok) return;
+    }
+    if (audio.ctx.state === 'suspended') await audio.ctx.resume();
+    // 停止白噪声（如有）
+    audio.stopNoise();
+    stopLevelMeter();
+    $playNoise.disabled = true;        // 互斥
+    $stopNoise.disabled = true;
+
+    startLevelMeter();
+    lockDevices(true);
+
+    const lo = parseFloat($sweepFreqLow.value) || 20;
+    const hi = parseFloat($sweepFreqHigh.value) || 20000;
+    const numPts = parseInt($sweepPoints.value) || 50;
+    const dur = parseInt($pointDuration.value) || 150;
+    const outChan = $outChannel.value;
+    const inChan = $inChannel.value;
+    const useFilter = document.getElementById('useFilter').checked;
+    const filterQ = parseFloat(document.getElementById('filterQ').value) || 5;
+
+    $startSweep.disabled = true;
+    $stopSweep.disabled = false;
+    setStatus('active', '测量中', tr('preparing'));
+
+    audio.runSweepMeasure(
+      lo, hi, numPts, dur,
+      // onProgress
+      (current, total, freq) => {
+        setStatus('active', tr('measuring'), trf('pointFmt', current, total, freq));
+      },
+      // onDone
+      (results, aborted) => {
+        $startSweep.disabled = false;
+        $stopSweep.disabled = true;
+        $playNoise.disabled = false;    // 恢复
+        stopLevelMeter();
+        lockDevices(false);
+        if (aborted) {
+        setStatus('idle', tr('stopped'), tr('aborted'));
+          return;
+        }
+        if (!results || results.length < 3) {
+          setStatus('error', tr('failed'), tr('noData'));
+          stopLevelMeter();
+          lockDevices(false);
+          return;
+        }
+        freqData = results;
+        chart.setFreqData(results);
+        chart.setPEQManager(peqMgr);
+        setStatus('done', tr('done'), trf('doneFmt', results.length, lo, hi));
+        $dataInfo.textContent = trf('dataInfo', results.length, lo, hi, new Date().toLocaleTimeString());
+        document.getElementById('yRangeLabel').textContent = '';
+        stopLevelMeter();
+        lockDevices(false);
+      },
+      // onError
+      (err) => {
+        $startSweep.disabled = false;
+        $stopSweep.disabled = true;
+        $playNoise.disabled = false;    // 恢复
+        stopLevelMeter();
+        lockDevices(false);
+        setStatus('error', tr('error'), err);
+      },
+      outChan,
+      inChan,
+      useFilter,
+      filterQ
+    );
+  });
+
+  $stopSweep.addEventListener('click', () => {
+    audio.abortSweep();
+    $startSweep.disabled = false;
+    $stopSweep.disabled = true;
+    $playNoise.disabled = false;        // 恢复
+    stopLevelMeter();
+    lockDevices(false);
+    setStatus('idle', tr('stopped'), tr('aborted'));
+  });
+
+  // Refresh devices
+  $refreshDevices.addEventListener('click', enumerateDevices);
+
+  // 输入设备切换
+  $inDevice.addEventListener('change', async () => {
+    if (!audio.micStream) return; // 未初始化，等按钮点击时自动用新设备
+    // 重新启动麦克风
+    const ok = await ensureAudioReady();
+    stopLevelMeter();  // 切换设备不启动电平表
+    if (ok && chart._freqData) chart.draw();
+  });
+
+  // 输出设备切换（仅 Chrome）
+  const $outDev = document.getElementById('outDevice');
+  $outDev.addEventListener('change', async () => {
+    if (!audio.ctx) {
+      $measureStatus.textContent = tr('startAudioFirst');
+      return;
+    }
+    const ok = await audio.setOutputDevice($outDev.value);
+    if (!ok) {
+      $measureStatus.textContent = tr('outDevFail');
+    }
+  });
+
+  // 输出声道切换 — 实时生效
+  const $outChan = document.getElementById('outChannel');
+  $outChan.addEventListener('change', () => {
+    audio.setOutputChannel($outChan.value);
+  });
+
+  // PEQ
+  $addPeqBtn.addEventListener('click', () => {
+    peqMgr.add(1000, 2, 1.0);
+  });
+  $clearPeqBtn.addEventListener('click', () => {
+    peqMgr.clear();
+  });
+
+  // 自动 PEQ
+  document.getElementById('autoPeqBtn').addEventListener('click', () => {
+    if (!freqData || freqData.length < 5) {
+      setStatus('error', tr('error'), '数据不足，请先执行扫频测量');
+      return;
+    }
+    const count = parseInt(document.getElementById('autoPeqCount').value) || 5;
+    const target = parseFloat(document.getElementById('autoPeqTarget').value) || 0;
+    const fLow = parseFloat(document.getElementById('autoPeqFreqLow').value) || 50;
+    const fHigh = parseFloat(document.getElementById('autoPeqFreqHigh').value) || 16000;
+    
+    // 锁定控件
+    const autoBtn = document.getElementById('autoPeqBtn');
+    autoBtn.disabled = true;
+    lockDevices(true);
+    $playNoise.disabled = true;
+    $stopNoise.disabled = true;
+    $startSweep.disabled = true;
+    $stopSweep.disabled = true;
+    $addPeqBtn.disabled = true;
+    $clearPeqBtn.disabled = true;
+    document.querySelectorAll('#peqList input').forEach(el => el.disabled = true);
+    setStatus('active', '计算中', '自动 PEQ 计算中…');
+    
+    // 执行计算
+    const peqs = generateAutoPEQ(freqData, count, target, fLow, fHigh);
+    
+    // 恢复控件
+    autoBtn.disabled = false;
+    lockDevices(false);
+    $playNoise.disabled = false;
+    $stopNoise.disabled = true;
+    $startSweep.disabled = false;
+    $stopSweep.disabled = true;
+    $addPeqBtn.disabled = false;
+    $clearPeqBtn.disabled = false;
+    document.querySelectorAll('#peqList input').forEach(el => el.disabled = false);
+    
+    if (peqs.length === 0) {
+      setStatus('error', tr('error'), '未能生成 PEQ 参数');
+      return;
+    }
+    
+    peqMgr.clear();
+    for (const p of peqs) {
+      peqMgr.add(p.freq, p.gain, p.Q);
+    }
+    setStatus('done', tr('done'), `自动 PEQ: ${peqs.length} 个`);
+  });
+
+  // Import/Export
+  $exportBtn.addEventListener('click', exportData);
+  $importBtn.addEventListener('click', () => $importFile.click());
+  $importFile.addEventListener('change', importData);
+
+  // 语言切换
+  document.getElementById('langSelect').addEventListener('change', (e) => {
+    applyLanguage(e.target.value);
+  });
+}
+
+// ---- PEQ List Rendering ----
+function renderPEQList() {
+  const list = peqMgr.list;
+  $peqCount.textContent = trf('peqCount', list.length);
+
+  if (list.length === 0) {
+    $peqListEl.innerHTML = '';
+    $peqEmpty.style.display = 'block';
+    return;
+  }
+  $peqEmpty.style.display = 'none';
+
+  $peqListEl.innerHTML = list.map(peq => `
+    <div class="peq-item" data-id="${peq.id}">
+      <div class="param-group">
+        <label>${tr('peqFreq')}</label>
+        <input type="number" min="20" max="20000" value="${peq.freq}" step="1"
+               data-param="freq" data-id="${peq.id}"
+               style="width:54px;text-align:center">
+        <span style="font-size:10px;color:#8b949e;flex-shrink:0">Hz</span>
+      </div>
+      <div class="param-group">
+        <label>${tr('peqGain')}</label>
+        <input type="number" step="0.01" min="-20.0" max="20.0" inputmode="decimal" value="${peq.gain}"
+               data-param="gain" data-id="${peq.id}"
+               style="width:50px;text-align:center">
+        <span style="font-size:10px;color:#8b949e;flex-shrink:0">dB</span>
+      </div>
+      <div class="param-group">
+        <label>Q</label>
+        <input type="number" step="any" min="0.01" max="12.0" inputmode="decimal" value="${peq.Q}"
+               data-param="Q" data-id="${peq.id}"
+               style="width:56px;text-align:center">
+      </div>
+      <button class="btn btn-danger btn-sm del-peq" data-id="${peq.id}">✕</button>
+    </div>
+  `).join('');
+
+  // Attach events — 值变化即更新 PEQ
+  $peqListEl.querySelectorAll('input[data-param]').forEach(el => {
+    // input：边输入边更新数据 + 刷新 chart，但不重建 DOM（避免失焦）
+    el.addEventListener('input', (e) => {
+      const id = parseInt(el.dataset.id);
+      const param = el.dataset.param;
+      const val = parseFloat(el.value);
+      if (isNaN(val)) return;
+      const peq = peqMgr.list.find(p => p.id === id);
+      if (peq) {
+        peq[param] = val;
+        if (chart._freqData) chart.draw();
+      }
+    });
+    // change：失焦时完成完整更新（同步 PEQ 管理器 + 重建列表）
+    el.addEventListener('change', (e) => {
+      const id = parseInt(el.dataset.id);
+      const param = el.dataset.param;
+      const val = parseFloat(el.value);
+      if (isNaN(val)) return;
+      peqMgr.update(id, { [param]: val });
+    });
+  });
+  $peqListEl.querySelectorAll('.del-peq').forEach(el => {
+    el.addEventListener('click', () => {
+      peqMgr.remove(parseInt(el.dataset.id));
+    });
+  });
+}
+
+// ---- Export / Import ----
+function exportData() {
+  if (!freqData) {
+    alert(tr('noDataExport'));
+    return;
+  }
+  const obj = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    measurement: freqData.map(d => ({ freq: d.freq, dB: d.dB_norm })),
+    peq: peqMgr.list.map(p => ({ freq: p.freq, gain: p.gain, Q: p.Q }))
+  };
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `acoustic-measurement-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const obj = JSON.parse(ev.target.result);
+      if (!obj.measurement || !Array.isArray(obj.measurement)) {
+        alert(tr('invalidFile'));
+        return;
+      }
+      // Convert back to full objects with dB_norm
+      freqData = obj.measurement.map(d => ({
+        freq: d.freq,
+        dB: d.dB,
+        dB_norm: d.dB,
+        rms: Math.pow(10, d.dB / 20)
+      }));
+      chart.setFreqData(freqData);
+      chart.setPEQManager(peqMgr);
+
+      // Import PEQ too
+      peqMgr.clear();
+      if (obj.peq && Array.isArray(obj.peq)) {
+        for (const p of obj.peq) {
+          peqMgr.add(p.freq, p.gain, p.Q);
+        }
+      }
+    setStatus('done', tr('done'), trf('importOk', freqData.length));
+      $dataInfo.textContent = trf('importOk', freqData.length) + ' · ' + new Date().toLocaleTimeString();
+    } catch (err) {
+      alert(tr('importFail') + ': ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ---- Start ----
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
