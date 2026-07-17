@@ -467,14 +467,20 @@ input[type="range"]::-moz-range-thumb {
     </div>
     <div class="panel-row" style="flex-wrap:nowrap;gap:6px;padding:6px 0;border-bottom:1px solid #21262d;margin-bottom:6px">
       <span style="font-size:12px;color:#8b949e;white-space:nowrap" data-i18n="autoPeqLabel">自动 PEQ</span>
-      <label style="font-size:11px">数量</label>
+      <label style="font-size:11px" data-i18n="autoPeqCount">数量</label>
       <input type="number" id="autoPeqCount" value="5" min="1" max="20" style="width:44px">
-      <label style="font-size:11px">平直</label>
+      <label style="font-size:11px" data-i18n="autoPeqFlat">平直</label>
       <input type="number" id="autoPeqFreqLow" value="50" min="10" max="20000" style="width:48px">
       <span style="font-size:10px;color:#8b949e">~</span>
       <input type="number" id="autoPeqFreqHigh" value="16000" min="20" max="24000" style="width:48px">
       <span style="font-size:10px;color:#8b949e">Hz</span>
-      <button id="autoPeqBtn" class="btn btn-primary btn-sm" style="margin-left:auto">▶ 生成</button>
+      <label style="font-size:11px" data-i18n="autoPeqGain">增益</label>
+      <input type="number" id="autoPeqMaxGain" value="20" min="1" max="40" style="width:42px">
+      <span style="font-size:10px;color:#8b949e">±dB</span>
+      <label style="font-size:11px" data-i18n="autoPeqTolerance">容差</label>
+      <input type="number" id="autoPeqTolerance" value="3" min="0" max="20" step="0.5" style="width:42px">
+      <span style="font-size:10px;color:#8b949e">dB</span>
+      <button id="autoPeqBtn" class="btn btn-primary btn-sm" style="margin-left:auto" data-i18n="autoPeqBtn">▶ 生成</button>
     </div>
     <div id="peqList" class="peq-list"></div>
     <div id="peqEmpty" class="peq-summary">尚未添加 PEQ — 点击「添加」创建</div>
@@ -521,10 +527,16 @@ const STR = {
     importOk:(n)=>`导入: ${n} 点`, importFail:'导入失败',
     noDataExport:'没有测量数据可以导出', invalidFile:'无效的数据文件',
     rawResp:'原始频响', peq:'PEQ', corrected:'校正后', leftAxis:'(左轴)', rightAxis:'(右轴)',
-    peqTitle:'Parametric EQ', peqAdd:'＋ 添加', peqClear:'清除',
+    peqTitle:'参数均衡器', peqAdd:'＋ 添加', peqClear:'清除',
     peqEmpty:'尚未添加 PEQ — 点击「添加」创建',
     peqCount:(n)=>`${n} 个`,
     peqFreq:'频率', peqGain:'增益',
+    autoPeqLabel:'自动 PEQ',
+    autoPeqCount:'数量',
+    autoPeqFlat:'平直',
+    autoPeqGain:'增益',
+    autoPeqTolerance:'容差',
+    autoPeqBtn:'▶ 生成',
     noDataLabel:'无测量数据',
     exportBtn:'📤 导出数据', importBtn:'📥 导入数据',
     startAudioFirst:'请先启动音频再切换输出设备',
@@ -559,6 +571,12 @@ const STR = {
     peqEmpty:'No PEQ added — click Add to create',
     peqCount:(n)=>`${n} item(s)`,
     peqFreq:'Freq.', peqGain:'Gain',
+    autoPeqLabel:'Auto EQ',
+    autoPeqCount:'Count',
+    autoPeqFlat:'Flat',
+    autoPeqGain:'Gain',
+    autoPeqTolerance:'Tolerance',
+    autoPeqBtn:'▶ Generate',
     noDataLabel:'No data',
     exportBtn:'📤 Export', importBtn:'📥 Import',
     startAudioFirst:'Start audio first before switching output device',
@@ -590,9 +608,15 @@ const STR = {
     importOk:(n)=>`Importé: ${n} pts`, importFail:'Échec import',
     noDataExport:'Aucune donnée', invalidFile:'Fichier invalide',
     rawResp:'Réponse Brute', peq:'PEQ', corrected:'Corrigé', leftAxis:'(G)', rightAxis:'(D)',
-    peqTitle:'PEQ', peqAdd:'＋ Ajouter', peqClear:'Effacer',
+    peqTitle:'Égaliseur paramétrique', peqAdd:'＋ Ajouter', peqClear:'Effacer',
     peqEmpty:'Aucun PEQ — cliquez Ajouter',
     peqCount:(n)=>`${n}`, peqFreq:'Fréq.', peqGain:'Gain',
+    autoPeqLabel:'EQ Auto',
+    autoPeqCount:'Nb',
+    autoPeqFlat:'Plage',
+    autoPeqGain:'Gain',
+    autoPeqTolerance:'Tolérance',
+    autoPeqBtn:'▶ Générer',
     noDataLabel:'Aucune donnée',
     exportBtn:'📤 Exporter', importBtn:'📥 Importer',
     startAudioFirst:'Démarrez l\'audio d\'abord',
@@ -625,9 +649,15 @@ const STR = {
     importOk:(n)=>`Importado: ${n} pts`, importFail:'Fallo importación',
     noDataExport:'Sin datos', invalidFile:'Archivo inválido',
     rawResp:'Resp. Original', peq:'PEQ', corrected:'Corregido', leftAxis:'(I)', rightAxis:'(D)',
-    peqTitle:'PEQ', peqAdd:'＋ Añadir', peqClear:'Limpiar',
+    peqTitle:'EQ paramétrico', peqAdd:'＋ Añadir', peqClear:'Limpiar',
     peqEmpty:'Sin PEQ — pulse Añadir',
     peqCount:(n)=>`${n}`, peqFreq:'Frec.', peqGain:'Gan.',
+    autoPeqLabel:'EQ Auto',
+    autoPeqCount:'Cant.',
+    autoPeqFlat:'Plano',
+    autoPeqGain:'Ganancia',
+    autoPeqTolerance:'Tolerancia',
+    autoPeqBtn:'▶ Generar',
     noDataLabel:'Sin datos',
     exportBtn:'📤 Exportar', importBtn:'📥 Importar',
     startAudioFirst:'Inicie audio primero',
@@ -660,9 +690,15 @@ const STR = {
     importOk:(n)=>`Импорт: ${n} т.`, importFail:'Ошибка импорта',
     noDataExport:'Нет данных', invalidFile:'Неверный файл',
     rawResp:'Исходный', peq:'PEQ', corrected:'Скоррект.', leftAxis:'(Л)', rightAxis:'(П)',
-    peqTitle:'PEQ', peqAdd:'＋ Добавить', peqClear:'Очистить',
+    peqTitle:'Параметрический эквалайзер', peqAdd:'＋ Добавить', peqClear:'Очистить',
     peqEmpty:'Нет PEQ — нажмите Добавить',
     peqCount:(n)=>`${n}`, peqFreq:'Частота', peqGain:'Усил.',
+    autoPeqLabel:'Авто ЭК',
+    autoPeqCount:'Кол-во',
+    autoPeqFlat:'Диапазон',
+    autoPeqGain:'Усиление',
+    autoPeqTolerance:'Допуск',
+    autoPeqBtn:'▶ Создать',
     noDataLabel:'Нет данных',
     exportBtn:'📤 Экспорт', importBtn:'📥 Импорт',
     startAudioFirst:'Сначала запустите аудио',
@@ -695,9 +731,15 @@ const STR = {
     importOk:(n)=>`Importiert: ${n} Pkt.`, importFail:'Importfehler',
     noDataExport:'Keine Daten', invalidFile:'Ungültige Datei',
     rawResp:'Original', peq:'PEQ', corrected:'Korrigiert', leftAxis:'(L)', rightAxis:'(R)',
-    peqTitle:'PEQ', peqAdd:'＋ Hinzufügen', peqClear:'Löschen',
+    peqTitle:'Parametrischer EQ', peqAdd:'＋ Hinzufügen', peqClear:'Löschen',
     peqEmpty:'Kein PEQ — klicken Sie Hinzufügen',
     peqCount:(n)=>`${n}`, peqFreq:'Freq.', peqGain:'Gain',
+    autoPeqLabel:'Auto EQ',
+    autoPeqCount:'Anzahl',
+    autoPeqFlat:'Bereich',
+    autoPeqGain:'Verstärk.',
+    autoPeqTolerance:'Toleranz',
+    autoPeqBtn:'▶ Erzeugen',
     noDataLabel:'Keine Daten',
     exportBtn:'📤 Exportieren', importBtn:'📥 Importieren',
     startAudioFirst:'Starten Sie zuerst Audio',
@@ -730,9 +772,15 @@ const STR = {
     importOk:(n)=>`インポート: ${n} 点`, importFail:'インポート失敗',
     noDataExport:'データなし', invalidFile:'無効なファイル',
     rawResp:'元の応答', peq:'PEQ', corrected:'補正後', leftAxis:'(左)', rightAxis:'(右)',
-    peqTitle:'PEQ', peqAdd:'＋ 追加', peqClear:'クリア',
+    peqTitle:'パラメトリックEQ', peqAdd:'＋ 追加', peqClear:'クリア',
     peqEmpty:'PEQ なし — 「追加」をクリック',
     peqCount:(n)=>`${n}`, peqFreq:'周波数', peqGain:'ゲイン',
+    autoPeqLabel:'自動EQ',
+    autoPeqCount:'数',
+    autoPeqFlat:'フラット',
+    autoPeqGain:'ゲイン',
+    autoPeqTolerance:'許容差',
+    autoPeqBtn:'▶ 生成',
     noDataLabel:'データなし',
     exportBtn:'📤 エクスポート', importBtn:'📥 インポート',
     startAudioFirst:'先にオーディオを起動してください',
@@ -765,9 +813,15 @@ const STR = {
     importOk:(n)=>`가져오기: ${n} 포인트`, importFail:'가져오기 실패',
     noDataExport:'내보낼 데이터 없음', invalidFile:'잘못된 파일',
     rawResp:'원래 응답', peq:'PEQ', corrected:'보정됨', leftAxis:'(좌)', rightAxis:'(우)',
-    peqTitle:'PEQ', peqAdd:'＋ 추가', peqClear:'지우기',
+    peqTitle:'파라메트릭 EQ', peqAdd:'＋ 추가', peqClear:'지우기',
     peqEmpty:'PEQ 없음 — 추가를 클릭하세요',
     peqCount:(n)=>`${n}`, peqFreq:'주파수', peqGain:'게인',
+    autoPeqLabel:'자동 EQ',
+    autoPeqCount:'개수',
+    autoPeqFlat:'평탄',
+    autoPeqGain:'게인',
+    autoPeqTolerance:'공차',
+    autoPeqBtn:'▶ 생성',
     noDataLabel:'데이터 없음',
     exportBtn:'📤 내보내기', importBtn:'📥 가져오기',
     startAudioFirst:'오디오를 먼저 시작하세요',
@@ -800,9 +854,15 @@ const STR = {
     importOk:(n)=>`Importado: ${n} pts`, importFail:'Falha na importação',
     noDataExport:'Sem dados', invalidFile:'Arquivo inválido',
     rawResp:'Resp. Original', peq:'PEQ', corrected:'Corrigido', leftAxis:'(E)', rightAxis:'(D)',
-    peqTitle:'PEQ', peqAdd:'＋ Adicionar', peqClear:'Limpar',
+    peqTitle:'EQ paramétrico', peqAdd:'＋ Adicionar', peqClear:'Limpar',
     peqEmpty:'Sem PEQ — clique Adicionar',
     peqCount:(n)=>`${n}`, peqFreq:'Freq.', peqGain:'Ganho',
+    autoPeqLabel:'EQ Auto',
+    autoPeqCount:'Quant.',
+    autoPeqFlat:'Plano',
+    autoPeqGain:'Ganho',
+    autoPeqTolerance:'Tolerância',
+    autoPeqBtn:'▶ Gerar',
     noDataLabel:'Sem dados',
     exportBtn:'📤 Exportar', importBtn:'📥 Importar',
     startAudioFirst:'Inicie o áudio primeiro',
@@ -912,6 +972,26 @@ function applyLanguage(lang) {
   safe(() => { $addPeqBtn.textContent = t.peqAdd; });
   safe(() => { $clearPeqBtn.textContent = t.peqClear; });
   safe(() => { $peqEmpty.textContent = t.peqEmpty; });
+
+  // 自动 PEQ 面板
+  safe(() => {
+    const el = _('[data-i18n="autoPeqLabel"]'); if (el) el.textContent = t.autoPeqLabel;
+  });
+  safe(() => {
+    const el = _('[data-i18n="autoPeqCount"]'); if (el) el.textContent = t.autoPeqCount;
+  });
+  safe(() => {
+    const el = _('[data-i18n="autoPeqFlat"]'); if (el) el.textContent = t.autoPeqFlat;
+  });
+  safe(() => {
+    const el = _('[data-i18n="autoPeqGain"]'); if (el) el.textContent = t.autoPeqGain;
+  });
+  safe(() => {
+    const el = _('[data-i18n="autoPeqTolerance"]'); if (el) el.textContent = t.autoPeqTolerance;
+  });
+  safe(() => {
+    const el = _('[data-i18n="autoPeqBtn"]'); if (el) el.textContent = t.autoPeqBtn;
+  });
 
   // 导入导出
   safe(() => { $exportBtn.textContent = t.exportBtn; });
@@ -1384,8 +1464,11 @@ class PEQManager {
 // ========================================================================
 //  自动 PEQ — 根据频响数据生成最优 PEQ 参数
 // ========================================================================
-function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
+function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, tolerance) {
   if (!freqData || freqData.length < 5) return [];
+
+  maxGain = maxGain > 0 ? maxGain : 20;
+  tolerance = tolerance != null ? tolerance : 3;
 
   const freqs = freqData.map(d => d.freq);
   const N = freqData.length;
@@ -1520,7 +1603,7 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
   // 一次性找出所有显著极值点
   const allPeaks = [];
   for (let i = 4; i < residual.length - 4; i++) {
-    if (Math.abs(residual[i]) < 0.3) continue;
+    if (Math.abs(residual[i]) < tolerance) continue;
     const isPeak = residual[i] > residual[i-1] && residual[i] > residual[i+1] && residual[i] >= residual[i-2] && residual[i] >= residual[i+2];
     const isValley = residual[i] < residual[i-1] && residual[i] < residual[i+1] && residual[i] <= residual[i-2] && residual[i] <= residual[i+2];
     if (!isPeak && !isValley) continue;
@@ -1578,9 +1661,9 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
   // 转成可变数组，gain = 补偿增益（与残差反号）
   const bands = selected.map(p => ({
     freq: p.freq,
-    gain: Math.max(-20, Math.min(20, -p.gain)),
+    gain: Math.max(-maxGain, Math.min(maxGain, -p.gain)),
     Q: 2.0
-  })).filter(p => Math.abs(p.gain) >= 0.3);
+  })).filter(p => Math.abs(p.gain) >= Math.max(0.3, tolerance * 0.2));
 
   if (bands.length > 0) {
     // 计算第 k 个 band 在局部窗口内的 RMS 误差
@@ -1598,8 +1681,10 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
           const q = (j === k) ? testQ : bands[j].Q;
           total += peakingGain(bands[j].freq, g, q, f);
         }
-        // PEQ 总和应抵消残差：total ≈ -rawResidual
-        const err = total + rawResidual[i];
+        // 平直区间：在 tolerance 内的残差不需修正
+        const resid = rawResidual[i];
+        const need = Math.abs(resid) <= tolerance ? 0 : resid - Math.sign(resid) * tolerance;
+        const err = total + need;
         sumSq += err * err;
         cnt++;
       }
@@ -1617,7 +1702,7 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
       for (const q of qC) {
         for (let gi = -6; gi <= 6; gi++) {
           const g = g0 + gi * gSpan / 6;
-          if (Math.abs(g) > 20) continue;
+          if (Math.abs(g) > maxGain) continue;
           const e = _localErr(k, g, q);
           if (e < bestE) { bestE = e; bestG = g; bestQ = q; }
         }
@@ -1627,7 +1712,7 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh) {
       const refQ = bestQ;
       for (let gi = -8; gi <= 8; gi++) {
         const g = bestG + gi * 0.2;
-        if (Math.abs(g) > 20) continue;
+        if (Math.abs(g) > maxGain) continue;
         for (let qi = -8; qi <= 8; qi++) {
           const q = Math.max(0.1, Math.min(12, refQ + qi * 0.15));
           const e = _localErr(k, g, q);
@@ -2342,6 +2427,8 @@ function setupEventListeners() {
     const count = parseInt(document.getElementById('autoPeqCount').value) || 5;
     const fLow = parseFloat(document.getElementById('autoPeqFreqLow').value) || 50;
     const fHigh = parseFloat(document.getElementById('autoPeqFreqHigh').value) || 16000;
+    const maxGain = parseFloat(document.getElementById('autoPeqMaxGain').value) || 20;
+    const tolerance = parseFloat(document.getElementById('autoPeqTolerance').value);
     
     // 锁定控件
     const autoBtn = document.getElementById('autoPeqBtn');
@@ -2357,7 +2444,7 @@ function setupEventListeners() {
     setStatus('active', '计算中', '自动 PEQ 计算中…');
     
     // 执行计算
-    const peqs = generateAutoPEQ(freqData, count, null, fLow, fHigh);
+    const peqs = generateAutoPEQ(freqData, count, null, fLow, fHigh, maxGain, tolerance);
     
     // 恢复控件
     autoBtn.disabled = false;
@@ -2502,6 +2589,18 @@ function importData(e) {
       }));
       chart.setFreqData(freqData);
       chart.setPEQManager(peqMgr);
+
+      // 自动设置频率区间：数据覆盖 50-16000 则用默认，否则用数据范围
+      const freqs = obj.measurement.map(d => d.freq);
+      const minF = Math.min(...freqs);
+      const maxF = Math.max(...freqs);
+      if (minF <= 50 && maxF >= 16000) {
+        document.getElementById('autoPeqFreqLow').value = 50;
+        document.getElementById('autoPeqFreqHigh').value = 16000;
+      } else {
+        document.getElementById('autoPeqFreqLow').value = Math.max(10, Math.round(minF));
+        document.getElementById('autoPeqFreqHigh').value = Math.min(24000, Math.round(maxF));
+      }
 
       // Import PEQ too
       peqMgr.clear();
