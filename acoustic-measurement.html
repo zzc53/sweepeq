@@ -492,6 +492,10 @@ input[type="range"]::-moz-range-thumb {
       <button id="exportBtn" class="btn btn-secondary btn-sm">📤 导出数据</button>
       <button id="importBtn" class="btn btn-secondary btn-sm">📥 导入数据</button>
       <input type="file" id="importFile" accept=".json" style="display:none">
+      <label style="font-size:11px;margin-left:8px" data-i18n="targetSpl">目标 SPL</label>
+      <input type="number" id="targetSplInput" value="76" min="40" max="120" step="0.5" style="width:50px">
+      <span style="font-size:10px;color:#8b949e">dB</span>
+      <button id="exportRewBtn" class="btn btn-secondary btn-sm">📤 REW</button>
       <span style="font-size:12px;color:#8b949e" id="dataInfo">无测量数据</span>
     </div>
   </div>
@@ -537,6 +541,7 @@ const STR = {
     autoPeqGain:'增益',
     autoPeqTolerance:'容差',
     autoPeqBtn:'▶ 生成',
+        targetSpl:'目标 SPL',
     noDataLabel:'无测量数据',
     exportBtn:'📤 导出数据', importBtn:'📥 导入数据',
     startAudioFirst:'请先启动音频再切换输出设备',
@@ -577,6 +582,7 @@ const STR = {
     autoPeqGain:'Gain',
     autoPeqTolerance:'Tolerance',
     autoPeqBtn:'▶ Generate',
+        targetSpl:'Target SPL',
     noDataLabel:'No data',
     exportBtn:'📤 Export', importBtn:'📥 Import',
     startAudioFirst:'Start audio first before switching output device',
@@ -617,6 +623,7 @@ const STR = {
     autoPeqGain:'Gain',
     autoPeqTolerance:'Tolérance',
     autoPeqBtn:'▶ Générer',
+        targetSpl:'SPL cible',
     noDataLabel:'Aucune donnée',
     exportBtn:'📤 Exporter', importBtn:'📥 Importer',
     startAudioFirst:'Démarrez l\'audio d\'abord',
@@ -658,6 +665,7 @@ const STR = {
     autoPeqGain:'Ganancia',
     autoPeqTolerance:'Tolerancia',
     autoPeqBtn:'▶ Generar',
+        targetSpl:'SPL objetivo',
     noDataLabel:'Sin datos',
     exportBtn:'📤 Exportar', importBtn:'📥 Importar',
     startAudioFirst:'Inicie audio primero',
@@ -699,6 +707,7 @@ const STR = {
     autoPeqGain:'Усиление',
     autoPeqTolerance:'Допуск',
     autoPeqBtn:'▶ Создать',
+        targetSpl:'Целевой SPL',
     noDataLabel:'Нет данных',
     exportBtn:'📤 Экспорт', importBtn:'📥 Импорт',
     startAudioFirst:'Сначала запустите аудио',
@@ -740,6 +749,7 @@ const STR = {
     autoPeqGain:'Verstärk.',
     autoPeqTolerance:'Toleranz',
     autoPeqBtn:'▶ Erzeugen',
+        targetSpl:'Ziel-SPL',
     noDataLabel:'Keine Daten',
     exportBtn:'📤 Exportieren', importBtn:'📥 Importieren',
     startAudioFirst:'Starten Sie zuerst Audio',
@@ -781,6 +791,7 @@ const STR = {
     autoPeqGain:'ゲイン',
     autoPeqTolerance:'許容差',
     autoPeqBtn:'▶ 生成',
+        targetSpl:'目標 SPL',
     noDataLabel:'データなし',
     exportBtn:'📤 エクスポート', importBtn:'📥 インポート',
     startAudioFirst:'先にオーディオを起動してください',
@@ -822,6 +833,7 @@ const STR = {
     autoPeqGain:'게인',
     autoPeqTolerance:'공차',
     autoPeqBtn:'▶ 생성',
+        targetSpl:'목표 SPL',
     noDataLabel:'데이터 없음',
     exportBtn:'📤 내보내기', importBtn:'📥 가져오기',
     startAudioFirst:'오디오를 먼저 시작하세요',
@@ -863,6 +875,7 @@ const STR = {
     autoPeqGain:'Ganho',
     autoPeqTolerance:'Tolerância',
     autoPeqBtn:'▶ Gerar',
+        targetSpl:'SPL alvo',
     noDataLabel:'Sem dados',
     exportBtn:'📤 Exportar', importBtn:'📥 Importar',
     startAudioFirst:'Inicie o áudio primeiro',
@@ -890,6 +903,7 @@ function applyLanguage(lang) {
   const safe = (fn) => { try { fn(); } catch(e) { console.warn('i18n:', e); } };
 
   safe(() => document.querySelector('h1').textContent = t.appTitle);
+  safe(() => { document.title = t.appTitle; });
   safe(() => _('#devicePanel h2').textContent = t.device);
   safe(() => _('#levelPanel h2').textContent = t.level);
   safe(() => _('#adjustPanel h2').textContent = t.adjust);
@@ -996,6 +1010,9 @@ function applyLanguage(lang) {
   // 导入导出
   safe(() => { $exportBtn.textContent = t.exportBtn; });
   safe(() => { $importBtn.textContent = t.importBtn; });
+  safe(() => {
+    const el = _('[data-i18n="targetSpl"]'); if (el) el.textContent = t.targetSpl;
+  });
   safe(() => {
     if (freqData && freqData.length > 0) {
       const lo = Math.round(freqData[0].freq);
@@ -1119,13 +1136,15 @@ class AudioEngine {
   setOutVolume(dB) {
     if (!this.masterGain) return;
     const gain = Math.pow(10, dB / 20);
-    this.masterGain.gain.value = gain;
+    this.masterGain.gain.cancelScheduledValues(0);
+    this.masterGain.gain.setValueAtTime(gain, this.ctx.currentTime);
   }
 
   setInGain(dB) {
     if (!this.micGain) return;
     const gain = Math.pow(10, dB / 20);
-    this.micGain.gain.value = gain;
+    this.micGain.gain.cancelScheduledValues(0);
+    this.micGain.gain.setValueAtTime(gain, this.ctx.currentTime);
   }
 
   /** 设置输出声道：'0'=左, '1'=右, 'dual'=立体声 */
@@ -1177,7 +1196,8 @@ class AudioEngine {
     this._noiseSource.buffer = buffer;
     this._noiseSource.loop = true;
     this._noiseGain = this.ctx.createGain();
-    this._noiseGain.gain.value = Math.pow(10, volumeDB / 20);
+    this._noiseGain.gain.cancelScheduledValues(0);
+    this._noiseGain.gain.setValueAtTime(Math.pow(10, volumeDB / 20), this.ctx.currentTime);
     this._noiseSource.connect(this._noiseGain);
     this._noiseGain.connect(this.masterGain);
     this._noiseSource.start();
@@ -1288,8 +1308,10 @@ class AudioEngine {
       const startSample = sampleStartPositions[i];
       const rms = this._measureBlockRMS(inputBuffer, startSample, totalSamplesReceived,
                                         actualSettle, actualMeasure);
+      const phase = this._measurePhase(freq, sampleRate, inputBuffer, startSample,
+                                        totalSamplesReceived, actualSettle, actualMeasure);
       if (rms > 0) {
-        results.push({ freq, rms, dB: 20 * Math.log10(rms) });
+        results.push({ freq, rms, dB: 20 * Math.log10(rms), phase });
       }
     }
 
@@ -1356,6 +1378,41 @@ class AudioEngine {
 
     if (copied < 10) return 0;
     return Math.sqrt(sumSq / copied);
+  }
+
+  /** 正交解调测量相位（度） */
+  _measurePhase(freq, sampleRate, buffer, startSample, totalLen, settleCount, measureCount) {
+    const bufBeforeStart = startSample;
+    const samplesAfterStart = totalLen - bufBeforeStart;
+    if (samplesAfterStart < settleCount + 10) return null;
+
+    const measureStart = bufBeforeStart + settleCount;
+    const available = totalLen - measureStart;
+    const take = Math.min(available, measureCount);
+    const omega = 2 * Math.PI * freq / sampleRate;
+
+    let sumI = 0, sumQ = 0, count = 0;
+    let cursor = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const chunk = buffer[i];
+      const chunkStart = cursor;
+      const chunkEnd = cursor + chunk.length;
+      cursor = chunkEnd;
+
+      if (chunkEnd <= measureStart) continue;
+      if (chunkStart >= measureStart + take) break;
+
+      const localStart = Math.max(0, measureStart - chunkStart);
+      const localEnd = Math.min(chunk.length, measureStart + take - chunkStart);
+      for (let j = localStart; j < localEnd; j++) {
+        const t = (measureStart + count) * omega;
+        sumI += chunk[j] * Math.cos(t);
+        sumQ += chunk[j] * Math.sin(t);
+        count++;
+      }
+    }
+    if (count < 10) return null;
+    return Math.atan2(sumQ, sumI) * 180 / Math.PI;
   }
 
   abortSweep() {
@@ -1829,12 +1886,14 @@ class ChartRenderer {
       return;
     }
 
-    const margin = { top: 18, bottom: 30, left: 50, right: 20 };
+    const margin = { top: 18, bottom: 30, left: 50, right: 64 };
     const plotW = w - margin.left - margin.right;
     const plotH = h - margin.top - margin.bottom;
 
     const freqs = data.map(d => d.freq);
     const rawDB = data.map(d => d.dB_norm);
+    const rawPhase = data.map(d => d.phase);
+    const hasPhase = rawPhase && rawPhase.some(p => p != null) && new Set(rawPhase).size > 1;
 
     // === 双 Y 轴范围计算 ===
     let correctedDB = null;
@@ -1867,7 +1926,7 @@ class ChartRenderer {
       `L ${lMin.toFixed(0)}~${lMax.toFixed(0)}  R ${rMin.toFixed(0)}~${rMax.toFixed(0)} dB`;
 
     // Axes (双Y + 精细X)
-    this._drawAxes(ctx, margin, w, h, plotW, plotH, freqs, lMin, lMax, rMin, rMax);
+    this._drawAxes(ctx, margin, w, h, plotW, plotH, freqs, lMin, lMax, rMin, rMax, hasPhase);
 
     const logLow = Math.log(freqs[0]);
     const logHigh = Math.log(freqs[freqs.length - 1]);
@@ -1944,6 +2003,26 @@ class ChartRenderer {
         ctx.stroke();
       }
     }
+
+    // === Draw phase curve (深灰，右轴 -180~180) ===
+    if (hasPhase) {
+      const pMin = -180, pMax = 180;
+      const yScaleP = (deg) => margin.top + plotH - ((deg - pMin) / (pMax - pMin)) * plotH;
+      ctx.beginPath();
+      let started = false;
+      for (let i = 0; i < data.length; i++) {
+        if (rawPhase[i] == null) continue;
+        const x = xScale(freqs[i]);
+        const y = yScaleP(rawPhase[i]);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(139, 148, 158, 1)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
   }
 
   _drawGrid(ctx, w, h) {
@@ -1959,7 +2038,7 @@ class ChartRenderer {
     }
   }
 
-  _drawAxes(ctx, margin, w, h, plotW, plotH, freqs, lMin, lMax, rMin, rMax) {
+  _drawAxes(ctx, margin, w, h, plotW, plotH, freqs, lMin, lMax, rMin, rMax, hasPhase) {
     const logLow = Math.log(freqs[0]);
     const logHigh = Math.log(freqs[freqs.length - 1]);
     const xPos = (f) => {
@@ -2046,6 +2125,29 @@ class ChartRenderer {
     ctx.textAlign = 'center';
     ctx.fillText(typeof tr !== 'undefined' ? tr('axisRight') : 'PEQ dB', 0, 0);
     ctx.restore();
+
+    // ---- 第三右 Y 轴 (Phase) ----
+    if (hasPhase) {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#6e7681';
+      ctx.font = '9px -apple-system, sans-serif';
+      const numYP = 6;
+      const pMin = -180, pMax = 180;
+      for (let i = 0; i <= numYP; i++) {
+        const deg = pMin + (pMax - pMin) * i / numYP;
+        const y = margin.top + plotH - (i / numYP) * plotH;
+        ctx.fillText(`${deg}°`, margin.left + plotW + 30, y + 3);
+      }
+      // 相位轴标签
+      ctx.save();
+      ctx.translate(w - 3, margin.top + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = '#6e7681';
+      ctx.font = '9px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Phase °', 0, 0);
+      ctx.restore();
+    }
 
     // Hz 单位
     ctx.textAlign = 'center';
@@ -2287,6 +2389,10 @@ function lockDevices(locked) {
   $refreshDevices.disabled = !!locked;
   const canSwitch = AudioEngine.supportsOutputSwitch();
   $outDevice.disabled = !!locked || !canSwitch;
+  if (!locked) {
+    $outVolume.disabled = false;
+    $inGain.disabled = false;
+  }
 }
 
 // ---- Event Listeners ----
@@ -2341,6 +2447,8 @@ function setupEventListeners() {
 
     startLevelMeter();
     lockDevices(true);
+    $outVolume.disabled = true;
+    $inGain.disabled = true;
 
     const lo = parseFloat($sweepFreqLow.value) || 20;
     const hi = parseFloat($sweepFreqHigh.value) || 20000;
@@ -2505,6 +2613,7 @@ function setupEventListeners() {
 
   // Import/Export
   $exportBtn.addEventListener('click', exportData);
+  document.getElementById('exportRewBtn').addEventListener('click', exportRew);
   $importBtn.addEventListener('click', () => $importFile.click());
   $importFile.addEventListener('change', importData);
 
@@ -2591,7 +2700,7 @@ function exportData() {
   const obj = {
     version: 1,
     exportedAt: new Date().toISOString(),
-    measurement: freqData.map(d => ({ freq: d.freq, dB: d.dB_norm })),
+    measurement: freqData.map(d => ({ freq: +d.freq.toFixed(6), dB: +d.dB_norm.toFixed(4), phase: d.phase != null ? +d.phase.toFixed(4) : null })),
     peq: peqMgr.list.map(p => ({ freq: p.freq, gain: p.gain, Q: p.Q }))
   };
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
@@ -2599,6 +2708,34 @@ function exportData() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `acoustic-measurement-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportRew() {
+  if (!freqData || freqData.length < 5) {
+    alert(tr('noDataExport'));
+    return;
+  }
+  const targetSpl = parseFloat(document.getElementById('targetSplInput').value) || 76;
+  const now = new Date();
+  const dateStr = now.toISOString().replace('T', ' ').substring(0, 19);
+  const lines = [];
+  lines.push(`* Exported from Acoustic Measurement Tool at ${dateStr}`);
+  lines.push(`* Source: measurement data, target SPL ${targetSpl.toFixed(1)} dB`);
+  lines.push('*');
+  lines.push('* Freq(Hz)\tSPL(dB)\tPhase(degrees)');
+  for (const d of freqData) {
+    const f = d.freq.toFixed(6);
+    const spl = (d.dB_norm + targetSpl).toFixed(4);
+    const phase = d.phase != null ? d.phase.toFixed(4) : '0.0000';
+    lines.push(`${f}\t${spl}\t${phase}`);
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `measurement-rew-${Date.now()}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -2619,7 +2756,8 @@ function importData(e) {
         freq: d.freq,
         dB: d.dB,
         dB_norm: d.dB,
-        rms: Math.pow(10, d.dB / 20)
+        rms: Math.pow(10, d.dB / 20),
+        phase: d.phase != null ? d.phase : 0
       }));
       chart.setFreqData(freqData);
       chart.setPEQManager(peqMgr);
