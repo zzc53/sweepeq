@@ -1469,6 +1469,8 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
 
   maxGain = maxGain > 0 ? maxGain : 20;
   tolerance = tolerance != null ? tolerance : 3;
+  // count 较多时自动降低极值检测阈值，让更多小峰谷入选
+  const peakTol = count <= 10 ? tolerance : Math.max(0.5, tolerance * (1 - 0.4 * (count - 10) / 10));
 
   const freqs = freqData.map(d => d.freq);
   const N = freqData.length;
@@ -1603,7 +1605,6 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
   // 一次性找出所有显著极值点
   const allPeaks = [];
   for (let i = 4; i < residual.length - 4; i++) {
-    if (Math.abs(residual[i]) < tolerance) continue;
     const isPeak = residual[i] > residual[i-1] && residual[i] > residual[i+1] && residual[i] >= residual[i-2] && residual[i] >= residual[i+2];
     const isValley = residual[i] < residual[i-1] && residual[i] < residual[i+1] && residual[i] <= residual[i-2] && residual[i] <= residual[i+2];
     if (!isPeak && !isValley) continue;
@@ -1623,6 +1624,9 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
       }
     }
 
+    // 用 rawResidual 的真实极值幅度判断是否显著（不受平滑影响）
+    if (Math.abs(rawResidual[bestIdx]) < peakTol) continue;
+
     // 测量半高宽（基于平滑后残差的检测点 i，用于计算 score）
     const peakAbs = Math.abs(residual[i]);
     const half = peakAbs / 2;
@@ -1637,7 +1641,11 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
     }
     const octBW = Math.log2(freqs[Math.min(right, residual.length-1)] / freqs[Math.max(0, left)]);
     const width = Math.max(0.05, octBW);
-    const score = width * width * Math.sqrt(Math.abs(rawResidual[bestIdx]));
+    // 频率权重：低频优先，对数刻度从 20Hz(1.0) 线性衰减到 20kHz(0.2)
+    const logF = Math.log2(Math.max(20, Math.min(20000, freqs[bestIdx])));
+    const fWeight = 1 - 0.8 * (logF - Math.log2(20)) / (Math.log2(20000) - Math.log2(20));
+    // sqrt(width) 避免 width² 过度压制窄峰（房间模式常为窄峰）
+    const score = Math.sqrt(Math.max(0.05, octBW)) * Math.sqrt(Math.abs(rawResidual[bestIdx])) * fWeight;
     allPeaks.push({ idx: bestIdx, freq: freqs[bestIdx], gain: rawResidual[bestIdx], q: 2, score });
   }
 
@@ -1650,7 +1658,7 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
     let tooClose = false;
     for (const s of selected) {
       const ratio = Math.max(p.freq, s.freq) / Math.min(p.freq, s.freq);
-      if (ratio < 1.3) { tooClose = true; break; }
+      if (ratio < 1.25) { tooClose = true; break; }
     }
     if (!tooClose) selected.push(p);
   }
@@ -1663,14 +1671,14 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
     freq: p.freq,
     gain: Math.max(-maxGain, Math.min(maxGain, -p.gain)),
     Q: 2.0
-  })).filter(p => Math.abs(p.gain) >= Math.max(0.3, tolerance * 0.2));
+  })).filter(p => Math.abs(p.gain) >= Math.max(0.3, peakTol * 0.1));
 
   if (bands.length > 0) {
     // 计算第 k 个 band 在局部窗口内的 RMS 误差
-    // （局部窗口为 [freq/2, freq*2]，约 ±1 倍频程）
+    // （局部窗口为 [freq/1.5, freq*1.5]，约 ±0.58 倍频程，避免包含极性相反的峰谷）
     function _localErr(k, testGain, testQ) {
       const f0 = bands[k].freq;
-      const lo = f0 / 2, hi = f0 * 2;
+      const lo = f0 / 1.5, hi = f0 * 1.5;
       let sumSq = 0, cnt = 0;
       for (let i = 0; i < N; i++) {
         const f = freqs[i];
@@ -1681,9 +1689,10 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
           const q = (j === k) ? testQ : bands[j].Q;
           total += peakingGain(bands[j].freq, g, q, f);
         }
-        // 平直区间：在 tolerance 内的残差不需修正
+        // 平直区间：在 tolerance 内的残差不计入误差（避免 PEQ 宽带特性扰动中性点）
         const resid = rawResidual[i];
-        const need = Math.abs(resid) <= tolerance ? 0 : resid - Math.sign(resid) * tolerance;
+        if (Math.abs(resid) <= tolerance) continue;
+        const need = resid - Math.sign(resid) * tolerance;
         const err = total + need;
         sumSq += err * err;
         cnt++;
@@ -1726,6 +1735,31 @@ function generateAutoPEQ(freqData, count, targetDB, freqLow, freqHigh, maxGain, 
     // 迭代 2 轮：每轮逐个优化所有 band
     for (let r = 0; r < 2; r++) {
       for (let k = 0; k < bands.length; k++) _optimizeOne(k);
+    }
+
+    // ======== 全局 gain 微调：最小化 PEQ 之间的互相干扰 ========
+    // 用 Gauss-Seidel 迭代，在每个 PEQ 频率点修正 gain
+    for (let r = 0; r < 3; r++) {
+      for (let k = 0; k < bands.length; k++) {
+        const f0 = bands[k].freq;
+        // 找到 f0 在 freqs 中的最近索引
+        let idx = 0;
+        for (let i = 1; i < N; i++) {
+          if (Math.abs(freqs[i] - f0) < Math.abs(freqs[idx] - f0)) idx = i;
+        }
+        // 所有 band 在 f0 处的总增益
+        let total = 0;
+        for (let j = 0; j < bands.length; j++) {
+          total += peakingGain(bands[j].freq, bands[j].gain, bands[j].Q, f0);
+        }
+        // 需要的补偿（考虑 tolerance 死区）
+        const resid = rawResidual[idx];
+        const need = Math.abs(resid) <= tolerance ? 0 : resid - Math.sign(resid) * tolerance;
+        const target = Math.max(-maxGain, Math.min(maxGain, -need));
+        // 误差 = 当前 - 目标，调整 gain
+        const err = total - target;
+        bands[k].gain = Math.round(Math.max(-maxGain, Math.min(maxGain, bands[k].gain - err * 0.6)) * 10) / 10;
+      }
     }
   }
 
