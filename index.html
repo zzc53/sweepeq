@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SweepEQ — Acoustic Measurement & PEQ</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div style="max-width:1400px;margin:0 auto 20px;display:flex;align-items:center;justify-content:space-between">
+  <h1 style="margin:0">🎧 SweepEQ</h1>
+  <select id="langSelect" style="min-width:110px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;padding:4px 8px;font-size:12px">
+    <option value="zh">中文</option>
+    <option value="en">English</option>
+    <option value="fr">Français</option>
+    <option value="es">Español</option>
+    <option value="ru">Русский</option>
+    <option value="de">Deutsch</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="pt">Português</option>
+  </select>
+</div>
+
+<div class="app-grid">
+
+<!-- ===== LEFT SIDEBAR ===== -->
+<div class="left-col">
+
+  <!-- 设备选择 -->
+  <div class="panel" id="devicePanel">
+    <h2>设备 / Device</h2>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输入</label>
+      <select id="inDevice" class="grow"></select>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输入声道</label>
+      <select id="inChannel" style="width:100%">
+        <option value="0">L</option>
+        <option value="1">R</option>
+      </select>
+    </div>
+    <div class="panel-row" id="outDeviceRow" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输出</label>
+      <select id="outDevice" class="grow"></select>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <label>输出声道</label>
+      <select id="outChannel" style="width:100%">
+        <option value="all">全部</option>
+        <option value="0">L</option>
+        <option value="1">R</option>
+      </select>
+    </div>
+    <div class="panel-row">
+      <button id="refreshDevices" class="btn btn-secondary btn-sm">🔄 刷新设备</button>
+      <span id="audioStatus" class="status-badge status-idle">待机</span>
+    </div>
+  </div>
+
+  <!-- 输入电平（独立面板，全局可见） -->
+  <div class="panel" id="levelPanel">
+    <h2>输入电平 / Input Level</h2>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#8b949e">
+        <span id="levelLabel">—</span>
+        <span id="levelDB">—∞ dB</span>
+      </div>
+      <div class="meter-track">
+        <div class="meter-fill" id="meterFill" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#484f58">
+        <span>-70</span><span>-35</span><span>0 dB</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 调整 -->
+  <div class="panel" id="adjustPanel">
+    <h2>调整 / Adjust</h2>
+    <div class="panel-row">
+      <button id="playNoiseBtn" class="btn btn-accent btn-sm">▶ 白噪声</button>
+      <button id="stopNoiseBtn" class="btn btn-secondary btn-sm" disabled>■ 停止</button>
+    </div>
+    <div class="panel-row" style="flex-direction:column;align-items:stretch;gap:2px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <label>输入增益</label>
+        <button id="autoLevelBtn" class="btn btn-accent btn-sm" disabled>自动调整</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="range" id="inGain" min="-12" max="36" value="0" step="1" style="flex:1">
+        <span id="inGainVal" class="range-value">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 测试 -->
+  <div class="panel" id="sweepPanel">
+    <h2>测试 / Sweep</h2>
+    <div class="panel-row">
+      <button id="startSweepBtn" class="btn btn-primary">▶ 开始扫频</button>
+      <button id="stopSweepBtn" class="btn btn-danger" disabled>■ 停止</button>
+    </div>
+    <div class="panel-row">
+      <label>起始</label>
+      <input type="number" id="sweepFreqLow" value="20" min="10" max="20000" style="width:64px">
+      <span style="font-size:11px;color:#8b949e;margin-left:-4px">Hz</span>
+      <label>终止</label>
+      <input type="number" id="sweepFreqHigh" value="20000" min="20" max="24000" style="width:64px">
+      <span style="font-size:11px;color:#8b949e;margin-left:-4px">Hz</span>
+    </div>
+    <div class="panel-row">
+      <label>点数</label>
+      <input type="number" id="sweepPoints" value="100" min="5" max="500" style="width:56px">
+      <label>时长</label>
+      <input type="number" id="pointDuration" value="100" min="20" max="1000" style="width:56px">
+      <span style="font-size:11px;color:#8b949e;margin-left:-4px">ms</span>
+    </div>
+    <div class="panel-row">
+      <label class="chk-label">
+        <input type="checkbox" id="useFilter" checked>
+        带通滤波
+      </label>
+      <label>Q</label>
+      <input type="number" id="filterQ" value="5" min="0.5" max="20" step="0.5" style="width:50px">
+    </div>
+    <!-- 进度由下方状态栏显示 -->
+    <div class="panel-row" style="margin-top:6px;padding-top:6px;border-top:1px solid #21262d">
+      <span id="measureStatus" class="status-badge status-idle">就绪</span>
+      <span style="font-size:12px;color:#8b949e" id="statusDetail">等待测量</span>
+    </div>
+  </div>
+</div>
+
+<div class="resizer" id="resizer"></div>
+
+<!-- ===== RIGHT MAIN ===== -->
+<div class="right-col">
+
+  <!-- Canvas -->
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div class="canvas-wrap">
+      <canvas id="freqChart"></canvas>
+      <div class="canvas-legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span> 原始频响 <span style="color:#8b949e;font-size:10px">(左轴)</span></span>
+        <span class="legend-item"><span class="legend-dot" style="background:#da3633"></span> PEQ <span style="color:#8b949e;font-size:10px">(右轴)</span></span>
+        <span class="legend-item"><span class="legend-dot" style="background:#3fb950"></span> 校正后</span>
+        <span class="legend-item" style="color:#8b949e">↕ <span id="yRangeLabel">L-- R-- dB</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PEQ -->
+  <div class="panel" id="peqPanel">
+    <div class="flex-row">
+      <h2 style="margin-bottom:0">Parametric EQ</h2>
+      <button id="addPeqBtn" class="btn btn-accent btn-sm">＋ 添加</button>
+      <button id="clearPeqBtn" class="btn btn-secondary btn-sm">清除</button>
+      <span id="peqCount" style="font-size:12px;color:#8b949e;margin-left:auto">0 个</span>
+    </div>
+    <div class="panel-row" style="flex-wrap:wrap;gap:8px;padding:8px 0;border-bottom:1px solid #21262d;margin-bottom:6px">
+      <span style="font-size:12px;color:#8b949e;white-space:nowrap" data-i18n="autoPeqLabel">自动 PEQ</span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <label style="font-size:11px" data-i18n="autoPeqCount">数量</label>
+        <input type="number" id="autoPeqCount" value="10" min="1" max="20" style="width:44px">
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <label style="font-size:11px" data-i18n="autoPeqFlat">调整响应范围</label>
+        <input type="number" id="autoPeqFreqLow" value="50" min="10" max="20000" style="width:48px">
+        <span style="font-size:10px;color:#8b949e">~</span>
+        <input type="number" id="autoPeqFreqHigh" value="16000" min="20" max="24000" style="width:60px">
+        <span style="font-size:10px;color:#8b949e">Hz</span>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <label style="font-size:11px" data-i18n="autoPeqTilt">低频增益</label>
+        <input type="number" id="autoPeqTilt" value="0" min="-24" max="24" step="0.5" style="width:50px">
+        <span style="font-size:10px;color:#8b949e">dB</span>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <label style="font-size:11px">
+          <input type="checkbox" id="autoPeqShelving" checked style="margin:0 3px 0 0;vertical-align:middle">
+          搁架
+        </label>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <label style="font-size:11px" data-i18n="autoPeqGain">PEQ 增益</label>
+        <input type="number" id="autoPeqMaxGain" value="12" min="1" max="40" style="width:42px">
+        <span style="font-size:10px;color:#8b949e">±dB</span>
+      </span>
+      <button id="autoPeqBtn" class="btn btn-primary btn-sm" style="margin-left:auto" data-i18n="autoPeqBtn">▶ 生成</button>
+    </div>
+    <div id="peqList" class="peq-list"></div>
+    <div id="peqEmpty" class="peq-summary">尚未添加 PEQ — 点击「添加」创建</div>
+  </div>
+
+  <!-- 导入/导出 -->
+  <div class="panel">
+    <div class="flex-row">
+      <button id="exportBtn" class="btn btn-secondary btn-sm">📤 导出数据</button>
+      <button id="importBtn" class="btn btn-secondary btn-sm">📥 导入数据</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <label style="font-size:11px;margin-left:8px" data-i18n="targetSpl">目标 SPL</label>
+      <input type="number" id="targetSplInput" value="75" min="40" max="120" step="0.5" style="width:50px">
+      <span style="font-size:10px;color:#8b949e">dB</span>
+      <label style="font-size:11px;margin-left:8px" data-i18n="autoPeqTarget">目标增益</label>
+      <input type="number" id="autoPeqTarget" value="0" min="-40" max="0" step="0.5" style="width:50px">
+      <span style="font-size:10px;color:#8b949e">dB</span>
+      <button id="exportRewBtn" class="btn btn-secondary btn-sm" data-i18n="exportRew">📤 REW</button>
+      <span style="font-size:12px;color:#8b949e" id="dataInfo">无测量数据</span>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script src="peq.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
