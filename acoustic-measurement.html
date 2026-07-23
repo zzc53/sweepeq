@@ -241,7 +241,7 @@ input[type="range"]::-moz-range-thumb {
 .peq-list { margin-top: 8px; }
 .peq-item {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: auto 1fr 1fr 1fr auto;
   gap: 4px;
   align-items: center;
   background: #0d1117;
@@ -467,7 +467,7 @@ input[type="range"]::-moz-range-thumb {
     <div class="canvas-wrap">
       <canvas id="freqChart"></canvas>
       <div class="canvas-legend">
-        <span class="legend-item"><span class="legend-dot" style="background:#58a6ff"></span> 原始频响 <span style="color:#8b949e;font-size:10px">(左轴)</span></span>
+        <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span> 原始频响 <span style="color:#8b949e;font-size:10px">(左轴)</span></span>
         <span class="legend-item"><span class="legend-dot" style="background:#da3633"></span> PEQ <span style="color:#8b949e;font-size:10px">(右轴)</span></span>
         <span class="legend-item"><span class="legend-dot" style="background:#3fb950"></span> 校正后</span>
         <span class="legend-item" style="color:#8b949e">↕ <span id="yRangeLabel">L-- R-- dB</span></span>
@@ -500,6 +500,12 @@ input[type="range"]::-moz-range-thumb {
         <label style="font-size:11px" data-i18n="autoPeqTilt">低频增益</label>
         <input type="number" id="autoPeqTilt" value="0" min="-24" max="24" step="0.5" style="width:50px">
         <span style="font-size:10px;color:#8b949e">dB</span>
+      </span>
+      <span style="display:inline-flex;align-items:center;gap:4px">
+        <label style="font-size:11px">
+          <input type="checkbox" id="autoPeqShelving" checked style="margin:0 3px 0 0;vertical-align:middle">
+          搁架
+        </label>
       </span>
       <span style="display:inline-flex;align-items:center;gap:4px">
         <label style="font-size:11px" data-i18n="autoPeqGain">PEQ 增益</label>
@@ -1554,8 +1560,8 @@ class PEQManager {
 
   onChange(cb) { this._onChange = cb; }
 
-  add(freq = 1000, gain = 0, Q = 1.0) {
-    const peq = { id: this._nextId++, freq, gain, Q };
+  add(freq = 1000, gain = 0, Q = 1.0, type = 'PK') {
+    const peq = { id: this._nextId++, freq, gain, Q, type };
     this.list.push(peq);
     this._notify();
     return peq;
@@ -1584,33 +1590,12 @@ class PEQManager {
     if (this._onChange) this._onChange(this.list);
   }
 
-  /** 计算在给定频率下的总增益 (dB)，叠加所有 PEQ band 的 peaking filter 响应 */
+  /** 计算在给定频率下的总增益 (dB)，叠加所有 PEQ band 的响应（支持 PK/LSC/HSC） */
   getGainAt(freq, sampleRate = 48000) {
     let totalDB = 0;
     for (const peq of this.list) {
-      const A = Math.pow(10, peq.gain / 40);
-      const w0 = 2 * Math.PI * peq.freq / sampleRate;
-      const alpha = Math.sin(w0) / (2 * peq.Q);
-
-      // Peaking filter transfer magnitude
-      const b0 = 1 + alpha * A;
-      const b1 = -2 * Math.cos(w0);
-      const b2 = 1 - alpha * A;
-      const a0 = 1 + alpha / A;
-      const a1 = -2 * Math.cos(w0);
-      const a2 = 1 - alpha / A;
-
-      // Evaluate at given frequency
-      const w = 2 * Math.PI * freq / sampleRate;
-      const cosW = Math.cos(w);
-      const sinW = Math.sin(w);
-      const numR = b0 + b1 * cosW + b2 * Math.cos(2 * w);
-      const numI = b1 * sinW + b2 * Math.sin(2 * w);
-      const denR = a0 + a1 * cosW + a2 * Math.cos(2 * w);
-      const denI = a1 * sinW + a2 * Math.sin(2 * w);
-      const magSq = (numR * numR + numI * numI) / (denR * denR + denI * denI);
-      const dB = 10 * Math.log10(Math.max(magSq, 1e-12));
-      totalDB += dB;
+      const type = peq.type === 'LSC' ? AE.LSC : (peq.type === 'HSC' ? AE.HSC : AE.PK);
+      totalDB += _filterGainAt(type, peq.freq, peq.gain, peq.Q, freq, sampleRate);
     }
     return totalDB;
   }
@@ -1824,6 +1809,27 @@ function _initHSC(y, freqs, fs, limF0, limGain, limQ) {
   return { f0, gain, Q };
 }
 const _INIT_FNS = [_initPK, _initLSC, _initHSC];
+
+/** 计算单个滤波器在指定频率的 dB 增益（支持 PK/LSC/HSC） */
+function _filterGainAt(type, f0, gainDB, Q, freq, fs) {
+  const A = _exp10(gainDB / 40);
+  const w0 = 2 * Math.PI * f0 / fs;
+  const cos_w = Math.cos(w0), sin_w = Math.sin(w0);
+  const alpha = sin_w * 0.5 / Q;
+  const s = _BIQUAD_FNS[type](A, cos_w, alpha);
+  const phi = _sq(Math.sin(Math.PI / fs * freq));
+  const ba = s.b0 + s.b1 + s.b2;
+  const aa = s.a0 + s.a1 + s.a2;
+  const b_x0 = _sq(ba);
+  const b_x1 = -4*(s.b0*s.b1 + 4*s.b0*s.b2 + s.b1*s.b2);
+  const b_x2 = 16*s.b0*s.b2;
+  const a_x0 = _sq(aa);
+  const a_x1 = -4*(s.a0*s.a1 + 4*s.a0*s.a2 + s.a1*s.a2);
+  const a_x2 = 16*s.a0*s.a2;
+  const b_poly = b_x0 + phi*(b_x1 + phi*b_x2);
+  const a_poly = a_x0 + phi*(a_x1 + phi*a_x2);
+  return 10 * Math.log10(Math.max(b_poly / a_poly, 1e-12));
+}
 
 // ---- 自适应平滑 (bilateral-ish filtering) ----
 function _adaptiveSmooth(freqs, r, smoothF0, smoothF1, smoothLo, smoothHi,
@@ -2057,7 +2063,7 @@ function _autoeq(steps, types, f0, gain, Q, amp, f0Lim, gainLim, QLim, N, freqs,
 }
 
 // ---- 对外接口：改名为 generateAutoPEQ，保持与原调用方兼容 ----
-function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
+function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, useShelving) {
   if (!freqData || freqData.length < 5) return [];
 
   const K = freqData.length;
@@ -2110,8 +2116,8 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
   const qLim = { lo: 0.4, hi: 4 };
 
   for (let n = 0; n < N; n++) {
-    if (n === 0)            { types[n] = AE.LSC; f0Lim[n] = { lo: Math.max(fl, 40), hi: Math.min(fh, 10000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
-    else if (n === 1)       { types[n] = AE.HSC; f0Lim[n] = { lo: Math.max(fl, 40), hi: Math.min(fh, 10000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
+    if (n === 0 && useShelving) { types[n] = AE.LSC; f0Lim[n] = { lo: Math.max(fl, 40), hi: Math.min(fh, 10000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
+    else if (n === 1 && useShelving) { types[n] = AE.HSC; f0Lim[n] = { lo: Math.max(fl, 40), hi: Math.min(fh, 10000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
     else                    { types[n] = AE.PK;  f0Lim[n] = lim; gainLim[n] = gLim; QLim[n] = qLim; }
   }
 
@@ -2154,7 +2160,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
   for (let n = 0; n < N; n++) {
     const gv = gain[n];
     if (Math.abs(gv) < 0.3) continue;
-    bands.push({ freq: f0[n], gain: gv, Q: Q[n] });
+    bands.push({ freq: f0[n], gain: gv, Q: Q[n], type: types[n] === AE.LSC ? 'LSC' : (types[n] === AE.HSC ? 'HSC' : 'PK') });
   }
   bands.sort((a, b) => a.freq - b.freq);
 
@@ -2170,7 +2176,6 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
 
         // --- 情况 A：同号增益 → 合并为单个滤波器 ---
         if (bands[i].gain * bands[j].gain >= 0) {
-          // 取增益较大的那个，频率取加权平均，Q 取较大的
           const abs_i = Math.abs(bands[i].gain);
           const abs_j = Math.abs(bands[j].gain);
           const total = abs_i + abs_j;
@@ -2178,6 +2183,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
             freq: (bands[i].freq * abs_i + bands[j].freq * abs_j) / total,
             gain: bands[i].gain + bands[j].gain,
             Q: Math.max(bands[i].Q, bands[j].Q),
+            type: bands[i].type || bands[j].type || 'PK',
           };
           bands[j] = merged;
           bands.splice(i, 1);
@@ -2186,7 +2192,6 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
         }
 
         // --- 情况 B：异号增益且近似抵消 → 移除两者 ---
-        // 只有当净增益接近 0（< 0.5dB）时才移除
         const net = bands[i].gain + bands[j].gain;
         if (Math.abs(net) < 0.5) {
           bands.splice(j, 1);
@@ -2197,6 +2202,8 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
 
         // --- 情况 C：异号但不抵消 → 只保留主导的 ---
         // 增益较小的那个移除，因为它被较大的抵消了大部分
+        const abs_i = Math.abs(bands[i].gain);
+        const abs_j = Math.abs(bands[j].gain);
         if (abs_i > abs_j * 1.5) {
           bands.splice(j, 1);
           changed = true;
@@ -2217,6 +2224,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB) {
       freq: Math.round(b.freq),
       gain: Math.round(b.gain * 10) / 10,
       Q: Math.round(b.Q * 100) / 100,
+      type: b.type || 'PK',
     }));
   finalBands.sort((a, b) => a.freq - b.freq);
 
@@ -2353,7 +2361,7 @@ class ChartRenderer {
       const y = yScaleL(rawDB[i]);
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = '#58a6ff';
+    ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 2.5;
     ctx.stroke();
 
@@ -2364,7 +2372,7 @@ class ChartRenderer {
     }
     ctx.lineTo(xScale(freqs[freqs.length - 1]), margin.top + plotH);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(88, 166, 255, 0.06)';
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.12)';
     ctx.fill();
 
     // === Draw PEQ curve (右轴) ===
@@ -2402,7 +2410,7 @@ class ChartRenderer {
         const x = xScale(peq.freq);
         ctx.beginPath();
         ctx.arc(x, margin.top + plotH + 8, 4, 0, Math.PI * 2);
-        ctx.fillStyle = peq.gain >= 0 ? '#da3633' : '#58a6ff';
+        ctx.fillStyle = peq.gain >= 0 ? '#da3633' : '#3b82f6';
         ctx.fill();
         ctx.beginPath();
         ctx.moveTo(x, margin.top + plotH + 4);
@@ -3178,7 +3186,8 @@ function setupEventListeners() {
     
     // 执行计算
     const tiltDB = parseFloat(document.getElementById('autoPeqTilt').value) || 0;
-    const peqs = generateAutoPEQ(freqData, count, fLow, fHigh, maxGain, tiltDB);
+    const useShelving = document.getElementById('autoPeqShelving').checked;
+    const peqs = generateAutoPEQ(freqData, count, fLow, fHigh, maxGain, tiltDB, useShelving);
     
     // 恢复控件
     autoBtn.disabled = false;
@@ -3198,7 +3207,7 @@ function setupEventListeners() {
     
     peqMgr.clear();
     for (const p of peqs) {
-      peqMgr.add(p.freq, p.gain, p.Q);
+      peqMgr.add(p.freq, p.gain, p.Q, p.type || 'PK');
     }
     setStatus('done', tr('done'), trf('peqGenDone', peqs.length));
   });
@@ -3229,6 +3238,14 @@ function renderPEQList() {
 
   $peqListEl.innerHTML = list.map(peq => `
     <div class="peq-item" data-id="${peq.id}">
+      <div class="param-group" style="min-width:48px">
+        <label>Type</label>
+        <select data-param="type" data-id="${peq.id}" style="width:50px;font-size:11px;padding:2px 4px">
+          <option value="PK" ${peq.type === 'PK' ? 'selected' : ''}>PK</option>
+          <option value="LSC" ${peq.type === 'LSC' ? 'selected' : ''}>LSC</option>
+          <option value="HSC" ${peq.type === 'HSC' ? 'selected' : ''}>HSC</option>
+        </select>
+      </div>
       <div class="param-group">
         <label>${tr('peqFreq')}</label>
         <input type="number" min="20" max="20000" value="${peq.freq}" step="1"
@@ -3254,7 +3271,7 @@ function renderPEQList() {
   `).join('');
 
   // Attach events — 值变化即更新 PEQ
-  $peqListEl.querySelectorAll('input[data-param]').forEach(el => {
+  $peqListEl.querySelectorAll('input[data-param], select[data-param]').forEach(el => {
     // input：边输入边更新数据 + 刷新 chart，但不重建 DOM（避免失焦）
     el.addEventListener('input', (e) => {
       const id = parseInt(el.dataset.id);
@@ -3293,7 +3310,7 @@ function exportData() {
     version: 1,
     exportedAt: new Date().toISOString(),
     measurement: freqData.map(d => ({ freq: +d.freq.toFixed(6), dB: +d.dB_norm.toFixed(4), phase: d.phase != null ? +d.phase.toFixed(4) : null })),
-    peq: peqMgr.list.map(p => ({ freq: p.freq, gain: p.gain, Q: p.Q }))
+    peq: peqMgr.list.map(p => ({ freq: p.freq, gain: p.gain, Q: p.Q, type: p.type || 'PK' }))
   };
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -3390,7 +3407,7 @@ function importData(e) {
       peqMgr.clear();
       if (obj.peq && Array.isArray(obj.peq)) {
         for (const p of obj.peq) {
-          peqMgr.add(p.freq, p.gain, p.Q);
+          peqMgr.add(p.freq, p.gain, p.Q, p.type || 'PK');
         }
       }
     setStatus('done', tr('done'), trf('importOk', freqData.length));
