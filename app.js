@@ -993,7 +993,7 @@ class AudioEngine {
     // Window impulse response around peak
     let peakIdx = 0;
     for (let i = 1; i < ir.length; i++) { if (ir[i] > ir[peakIdx]) peakIdx = i; }
-    const irLen = 4096;
+    const irLen = 65536; // 2^16, ~0.73 Hz resolution at 48kHz
     const irStart = Math.max(0, peakIdx - irLen / 4);
     const irWin = new Float64Array(irLen);
     for (let i = 0; i < irLen; i++) { irWin[i] = ir[irStart + i] || 0; }
