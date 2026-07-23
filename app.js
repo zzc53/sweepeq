@@ -58,6 +58,7 @@ const STR = {
     autoPeqCount:'数量',
     autoPeqTarget:'目标增益',
     autoPeqTilt:'低频增益',
+    autoPeqShelving:'搁架式',
     autoPeqFlat:'调整响应范围',
     autoPeqGain:'PEQ 增益',
     autoPeqBtn:'▶ 生成',
@@ -105,6 +106,7 @@ const STR = {
     autoPeqCount:'Count',
     autoPeqTarget:'Target',
     autoPeqTilt:'LF Tilt',
+    autoPeqShelving:'Shelving',
     autoPeqFlat:'Range',
     autoPeqGain:'Gain',
     autoPeqBtn:'▶ Generate',
@@ -149,6 +151,7 @@ const STR = {
     autoPeqCount:'Nb',
     autoPeqTarget:'Cible',
     autoPeqTilt:'Inclin. BF',
+    autoPeqShelving:'Filtre Plateau',
     autoPeqFlat:'Fr Range',
     autoPeqGain:'Gain',
     autoPeqBtn:'▶ Générer',
@@ -194,6 +197,7 @@ const STR = {
     autoPeqCount:'Cant.',
     autoPeqTarget:'Objetivo',
     autoPeqTilt:'Inclin. BF',
+    autoPeqShelving:'Estante',
     autoPeqFlat:'Rango',
     autoPeqGain:'Ganancia',
     autoPeqBtn:'▶ Generar',
@@ -240,6 +244,7 @@ const STR = {
     autoPeqCount:'Кол-во',
     autoPeqTarget:'Цель',
     autoPeqTilt:'НЧ наклон',
+    autoPeqShelving:'Полочный',
     autoPeqFlat:'Диапазон',
     autoPeqGain:'Усиление',
     autoPeqBtn:'▶ Создать',
@@ -285,6 +290,7 @@ const STR = {
     autoPeqCount:'Anzahl',
     autoPeqTarget:'Ziel',
     autoPeqTilt:'LF-Neigung',
+    autoPeqShelving:'Regal',
     autoPeqFlat:'Bereich',
     autoPeqGain:'Verstärk.',
     autoPeqBtn:'▶ Erzeugen',
@@ -330,6 +336,7 @@ const STR = {
     autoPeqCount:'数',
     autoPeqTarget:'目標',
     autoPeqTilt:'低域傾斜',
+    autoPeqShelving:'シェルビング',
     autoPeqFlat:'範囲',
     autoPeqGain:'ゲイン',
     autoPeqBtn:'▶ 生成',
@@ -375,6 +382,7 @@ const STR = {
     autoPeqCount:'개수',
     autoPeqTarget:'목표',
     autoPeqTilt:'저역 기울기',
+    autoPeqShelving:'셸빙',
     autoPeqFlat:'범위',
     autoPeqGain:'게인',
     autoPeqBtn:'▶ 생성',
@@ -420,6 +428,7 @@ const STR = {
     autoPeqCount:'Quant.',
     autoPeqTarget:'Alvo',
     autoPeqTilt:'Inclin. BF',
+    autoPeqShelving:'Prateleira',
     autoPeqFlat:'Faixa',
     autoPeqGain:'Ganho',
     autoPeqBtn:'▶ Gerar',
@@ -550,6 +559,9 @@ function applyLanguage(lang) {
   });
   safe(() => {
     const el = _('[data-i18n="autoPeqTilt"]'); if (el) el.textContent = t.autoPeqTilt;
+  });
+  safe(() => {
+    const el = _('[data-i18n="autoPeqShelving"]'); if (el) el.textContent = t.autoPeqShelving;
   });
 
   // 导入导出
