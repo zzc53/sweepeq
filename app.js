@@ -801,8 +801,117 @@ class AudioEngine {
     this._noiseGain = null;
   }
 
-  // ---- Sweep measurement ----
-  async runSweepMeasure(freqLow, freqHigh, numPoints, pointDurMs, onProgress, onDone, onError, outChan, inChan, useFilter, filterQ) {
+  // ---- Sweep measurement (log-sweep + FFT) ----
+
+  /** Generate a log-sweep (exponential chirp) signal */
+  _generateSweepSignal(f0, f1, duration) {
+    const fs = this.ctx.sampleRate;
+    const n = Math.floor(duration * fs);
+    const L = duration / Math.log(f1 / f0);
+    const sig = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / fs;
+      sig[i] = Math.sin(2 * Math.PI * f0 * L * (Math.exp(t / L) - 1));
+    }
+    return sig;
+  }
+
+  /** Radix-2 FFT (in-place). real/imag arrays length must be power of 2 */
+  _fft(re, im) {
+    const n = re.length;
+    // Bit reversal
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) {
+        [re[i], re[j]] = [re[j], re[i]];
+        [im[i], im[j]] = [im[j], im[i]];
+      }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const half = len >> 1;
+      const wRe = Math.cos(Math.PI / half);
+      const wIm = -Math.sin(Math.PI / half);
+      for (let i = 0; i < n; i += len) {
+        let wr = 1, wi = 0;
+        for (let j = 0; j < half; j++) {
+          const k = i + j;
+          const tRe = wr * re[k + half] - wi * im[k + half];
+          const tIm = wr * im[k + half] + wi * re[k + half];
+          re[k + half] = re[k] - tRe;
+          im[k + half] = im[k] - tIm;
+          re[k] += tRe;
+          im[k] += tIm;
+          const tmp = wr * wRe - wi * wIm;
+          wi = wr * wIm + wi * wRe;
+          wr = tmp;
+        }
+      }
+    }
+  }
+
+  /** Hann window in-place */
+  _hannWindow(arr) {
+    const n = arr.length;
+    for (let i = 0; i < n; i++) {
+      arr[i] *= 0.5 * (1 - Math.cos(2 * Math.PI * i / (n - 1)));
+    }
+  }
+
+  /** Compute magnitude spectrum (dB) at 384 log-spaced frequencies from recorded signal */
+  _sweepFFT(recorded, refSignal, freqLow, freqHigh) {
+    const fs = this.ctx.sampleRate;
+    // Use power-of-2 FFT size
+    const n = recorded.length;
+    const fftSize = Math.pow(2, Math.floor(Math.log2(n)));
+    const offset = Math.floor((n - fftSize) / 2);  // take middle section
+
+    // Window and FFT the recorded signal
+    const reRec = new Float64Array(fftSize);
+    const imRec = new Float64Array(fftSize);
+    for (let i = 0; i < fftSize; i++) {
+      reRec[i] = recorded[offset + i];
+    }
+    this._hannWindow(reRec);
+    this._fft(reRec, imRec);
+
+    // Window and FFT the reference signal
+    const refOffset = Math.floor((refSignal.length - fftSize) / 2);
+    const reRef = new Float64Array(fftSize);
+    const imRef = new Float64Array(fftSize);
+    for (let i = 0; i < fftSize; i++) {
+      reRef[i] = refSignal[refOffset + i];
+    }
+    this._hannWindow(reRef);
+    this._fft(reRef, imRef);
+
+    // Build 384 log-spaced results
+    const K = 384;
+    const logLow = Math.log(freqLow);
+    const logHigh = Math.log(freqHigh);
+    const results = [];
+    for (let i = 0; i < K; i++) {
+      const freq = Math.exp(logLow + (logHigh - logLow) * i / (K - 1));
+      const bin = Math.round(freq / fs * fftSize);
+      if (bin < 1 || bin >= fftSize / 2) continue;
+      // Transfer function: H = recorded / reference
+      const magRec = Math.sqrt(reRec[bin] * reRec[bin] + imRec[bin] * imRec[bin]);
+      const magRef = Math.sqrt(reRef[bin] * reRef[bin] + imRef[bin] * imRef[bin]);
+      let phase = Math.atan2(imRec[bin], reRec[bin]) - Math.atan2(imRef[bin], reRef[bin]);
+      if (magRef > 1e-12) {
+        const h = magRec / magRef;
+        const dB = 20 * Math.log10(Math.max(h, 1e-12));
+        phase = phase * 180 / Math.PI;
+        while (phase < -180) phase += 360;
+        while (phase > 180) phase -= 360;
+        results.push({ freq, rms: h, dB, phase });
+      }
+    }
+    return results;
+  }
+
+  async runSweepMeasure(freqLow, freqHigh, duration, onProgress, onDone, onError, inChan) {
     if (!this.ctx || !this.micGain) {
       onError(tr('selectMicFirst'));
       return;
