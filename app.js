@@ -647,6 +647,7 @@ class AudioEngine {
     this._micPanner = null;
     this._inChannelCount = 2;
     this._outGains = [];
+    this._outSplitter = null;
     this._outMerger = null;
     this._outChCount = 2;
   }
@@ -658,15 +659,18 @@ class AudioEngine {
     this.masterGain.gain.value = 1;
     this.masterAnalyser = this.ctx.createAnalyser();
     this.masterAnalyser.fftSize = 1024;
-    // 多声道输出路由：masterGain → 每声道独立 Gain → Merger → destination
-    this._outChCount = Math.min(this.ctx.destination.maxChannelCount || 2, 8);
+    // Output routing: masterGain → splitter → per-channel Gain → merger → destination
+    const outCh = Math.min(this.ctx.destination.maxChannelCount || 2, 8);
+    this._outChCount = outCh;
+    this._outSplitter = this.ctx.createChannelSplitter(outCh);
     this._outGains = [];
-    this._outMerger = this.ctx.createChannelMerger(this._outChCount);
-    for (let i = 0; i < this._outChCount; i++) {
+    this._outMerger = this.ctx.createChannelMerger(outCh);
+    this.masterGain.connect(this._outSplitter);
+    for (let i = 0; i < outCh; i++) {
       const g = this.ctx.createGain();
       g.gain.value = 1;
       this._outGains.push(g);
-      this.masterGain.connect(g);
+      this._outSplitter.connect(g, i, 0);
       g.connect(this._outMerger, 0, i);
     }
     this._outMerger.connect(this.masterAnalyser);
@@ -680,7 +684,7 @@ class AudioEngine {
     if (this.micStream) {
       this.stopMic();
     }
-    // 释放 init 阶段预申请的权限流
+    // Release the pre-granted permission stream before opening the real mic
     if (window._permStream) {
       window._permStream.getTracks().forEach(t => t.stop());
       window._permStream = null;
@@ -772,15 +776,17 @@ class AudioEngine {
       typeof AudioContext.prototype.setSinkId === 'function';
   }
 
-  // ---- White noise (mono) ----
+  // ---- White noise (stereo) ----
   startNoise(volumeDB = -12) {
     if (!this.ctx || !this.masterGain) return;
     this.stopNoise();
     const bufferSize = this.ctx.sampleRate * 2;
-    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1);
+    const buffer = this.ctx.createBuffer(2, bufferSize, this.ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buffer.getChannelData(ch);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1);
+      }
     }
     this._noiseSource = this.ctx.createBufferSource();
     this._noiseSource.buffer = buffer;
@@ -921,126 +927,83 @@ class AudioEngine {
     this._inputBuffers = [];
     this._isRecording = true;
 
-    const sampleRate = this.ctx.sampleRate;
-    const freqs = [];
-    const logLow = Math.log(freqLow);
-    const logHigh = Math.log(freqHigh);
-    for (let i = 0; i < numPoints; i++) {
-      const f = Math.exp(logLow + (logHigh - logLow) * i / (numPoints - 1));
-      freqs.push(f);
-    }
+    const fs = this.ctx.sampleRate;
+    onProgress(0, 1, 'Generating sweep…');
 
-    const results = [];
+    // Generate log-sweep signal
+    const sweepSignal = this._generateSweepSignal(freqLow, freqHigh, duration);
+    const totalSamples = sweepSignal.length;
 
-    // Setup ScriptProcessorNode for capture（输入声道数取实际值）
+    // Setup ScriptProcessorNode for capture
     const inChCount = this._inChannelCount || 2;
     const scriptNode = this.ctx.createScriptProcessor(2048, inChCount, 1);
     const inputBuffer = [];
-    let totalSamplesReceived = 0;
+    let recordedSamples = 0;
     scriptNode.onaudioprocess = (e) => {
       if (!this._isRecording) return;
       const chIdx = parseInt(inChan);
       if (chIdx >= e.inputBuffer.numberOfChannels) return;
       const data = e.inputBuffer.getChannelData(chIdx);
       inputBuffer.push(new Float32Array(data));
-      totalSamplesReceived += data.length;
+      recordedSamples += data.length;
     };
 
-    // Use mute node to avoid mic feedback to speakers
+    // Playback setup
+    const sweepBuffer = this.ctx.createBuffer(1, totalSamples, fs);
+    sweepBuffer.getChannelData(0).set(sweepSignal);
+    const source = this.ctx.createBufferSource();
+    source.buffer = sweepBuffer;
+    const sweepGain = this.ctx.createGain();
+    sweepGain.gain.value = Math.pow(10, -6 / 20);
+    source.connect(sweepGain);
+    sweepGain.connect(this.masterGain);
+
+    // Mute node to prevent feedback
     const muteGain = this.ctx.createGain();
     muteGain.gain.value = 0;
-
-    // Optional bandpass filter to reject ambient noise
-    let bpFilter = null;
-    if (useFilter) {
-      bpFilter = this.ctx.createBiquadFilter();
-      bpFilter.type = 'bandpass';
-      bpFilter.frequency.value = freqs[0];
-      bpFilter.Q.value = filterQ || 5;
-      this.micGain.connect(bpFilter);
-      bpFilter.connect(scriptNode);
-    } else {
-      this.micGain.connect(scriptNode);
-    }
+    this.micGain.connect(scriptNode);
     scriptNode.connect(muteGain);
     muteGain.connect(this.ctx.destination);
 
-    // Create oscillator + gain for sweep
-    const osc = this.ctx.createOscillator();
-    const sweepGain = this.ctx.createGain();
-    sweepGain.gain.value = Math.pow(10, -6/20);
-    osc.type = 'sine';
-    osc.connect(sweepGain);
-    sweepGain.connect(this.masterGain);
+    // Play
+    source.start();
+    onProgress(1, 2, 'Measuring…');
 
-    osc.start();
+    // Wait for playback + a bit of silence after
+    await this._sleep(Math.ceil(duration * 1000) + 500);
+    source.stop();
+    this._isRecording = false;
 
-    // 先播放 250ms 让系统稳定，再静音 2000ms，然后开始正式测量
-    await this._sleep(250);
-    sweepGain.gain.value = 0;
-    await this._sleep(2000);
-    sweepGain.gain.value = Math.pow(10, -6/20);
-
-    let stopped = false;
-    const sampleStartPositions = [];
-
-    for (let i = 0; i < numPoints; i++) {
-      if (!this._sweepRunning || stopped) {
-        stopped = true;
-        break;
-      }
-      const freq = freqs[i];
-
-      // 低频需要更长时间稳定：20Hz→3x, 100Hz→1.5x, 1kHz→1x
-      const freqFactor = Math.max(1, Math.min(3, 120 / freq));
-      const actualDur = Math.round(pointDurMs * freqFactor);
-      const actualSamples = Math.floor(sampleRate * actualDur / 1000);
-      const actualSettle = Math.floor(actualSamples * 0.3);
-      const actualMeasure = actualSamples - actualSettle;
-
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      if (bpFilter) bpFilter.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      sampleStartPositions.push(totalSamplesReceived);
-      onProgress(i + 1, numPoints, freq);
-
-      await this._sleep(actualDur);
-
-      // 测量本频率点（跳过 settle 段）
-      const startSample = sampleStartPositions[i];
-      const rms = this._measureBlockRMS(inputBuffer, startSample, totalSamplesReceived,
-                                        actualSettle, actualMeasure);
-      const phase = this._measurePhase(freq, sampleRate, inputBuffer, startSample,
-                                        totalSamplesReceived, actualSettle, actualMeasure);
-      if (rms > 0) {
-        results.push({ freq, rms, dB: 20 * Math.log10(rms), phase });
-      }
-    }
-
-    // Cleanup
-    osc.stop();
-    // 清理音频节点
-    if (bpFilter) {
-      this.micGain.disconnect(bpFilter);
-      bpFilter.disconnect();
-    } else {
-      this.micGain.disconnect(scriptNode);
-    }
+    // Cleanup nodes
+    this.micGain.disconnect(scriptNode);
     scriptNode.disconnect();
     muteGain.disconnect();
-    this._isRecording = false;
     this._sweepRunning = false;
 
-    if (stopped) {
-      onDone(null, true);
+    // Combine recorded buffers
+    onProgress(2, 3, 'Processing FFT…');
+    const totalRec = recordedSamples;
+    const recorded = new Float64Array(totalRec);
+    let pos = 0;
+    for (const buf of inputBuffer) {
+      recorded.set(buf, pos);
+      pos += buf.length;
+    }
+
+    // Compute frequency response via FFT
+    const results = this._sweepFFT(recorded, sweepSignal, freqLow, freqHigh);
+
+    if (results.length < 10) {
+      onError('Insufficient data — check input/output devices and volume');
       return;
     }
 
     // Normalize: shift so max = 0 dB
-    if (results.length > 0) {
-      const maxDB = Math.max(...results.map(r => r.dB));
-      results.forEach(r => { r.dB_norm = r.dB - maxDB; });
-    }
+    const maxDB = Math.max(...results.map(r => r.dB));
+    results.forEach(r => { r.dB_norm = r.dB - maxDB; });
 
+    onProgress(3, 3, 'Done');
+    await this._sleep(50);
     onDone(results, false);
   }
 
@@ -1604,8 +1567,7 @@ const $startSweep = document.getElementById('startSweepBtn');
 const $stopSweep = document.getElementById('stopSweepBtn');
 const $sweepFreqLow = document.getElementById('sweepFreqLow');
 const $sweepFreqHigh = document.getElementById('sweepFreqHigh');
-const $sweepPoints = document.getElementById('sweepPoints');
-const $pointDuration = document.getElementById('pointDuration');
+const $sweepDuration = document.getElementById('sweepDuration');
 const $measureStatus = document.getElementById('measureStatus');
 const $statusDetail = document.getElementById('statusDetail');
 const $addPeqBtn = document.getElementById('addPeqBtn');
@@ -1829,16 +1791,16 @@ async function init() {
     if (freqData) chart.setFreqData(freqData);
   });
 
-  // 提前申请麦克风权限，让 enumerateDevices 能获取真实设备标签
-  // 注意：Chrome 在 file:// 下会拦截，必须通过 http://localhost 访问
+  // Pre-request mic permission so enumerateDevices can show real device names
+  // Note: Chrome blocks this on file://, use http://localhost
   try {
     const permStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     window._permStream = permStream;
   } catch (e) {
-    // 权限被拒或 file:// 协议，静默处理
+    // Permission denied or file://, continue silently
   }
 
-  // 枚举设备（获取权限后重枚举可显示真实设备名）
+  // Enumerate devices (with real names if permission was granted)
   await enumerateDevices();
 
   setupEventListeners();
@@ -2035,28 +1997,28 @@ function setupEventListeners() {
 
     const lo = parseFloat($sweepFreqLow.value) || 20;
     const hi = parseFloat($sweepFreqHigh.value) || 20000;
-    const numPts = parseInt($sweepPoints.value) || 50;
-    const dur = parseInt($pointDuration.value) || 150;
-    const outChan = $outChannel.value;
+    const totalDur = parseFloat($sweepDuration.value) || 5;
     const inChan = $inChannel.value;
-    const useFilter = document.getElementById('useFilter').checked;
-    const filterQ = parseFloat(document.getElementById('filterQ').value) || 5;
 
     $startSweep.disabled = true;
     $stopSweep.disabled = false;
     setStatus('active', tr('measuring'), tr('preparing'));
 
     audio.runSweepMeasure(
-      lo, hi, numPts, dur,
+      lo, hi, totalDur,
       // onProgress
-      (current, total, freq) => {
-        setStatus('active', tr('measuring'), trf('pointFmt', current, total, freq));
+      (phase, total, msg) => {
+        if (typeof msg === 'string') {
+          setStatus('active', tr('measuring'), msg);
+        } else {
+          setStatus('active', tr('measuring'), trf('pointFmt', phase, total, msg));
+        }
       },
       // onDone
       (results, aborted) => {
         $startSweep.disabled = false;
         $stopSweep.disabled = true;
-        $playNoise.disabled = false;    // 恢复
+        $playNoise.disabled = false;
         stopLevelMeter();
         lockDevices(false);
         if (aborted) {
@@ -2083,15 +2045,12 @@ function setupEventListeners() {
       (err) => {
         $startSweep.disabled = false;
         $stopSweep.disabled = true;
-        $playNoise.disabled = false;    // 恢复
+        $playNoise.disabled = false;
         stopLevelMeter();
         lockDevices(false);
         setStatus('error', tr('error'), err);
       },
-      outChan,
-      inChan,
-      useFilter,
-      filterQ
+      inChan
     );
   });
 
