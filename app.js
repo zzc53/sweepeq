@@ -38,11 +38,11 @@ const STR = {
     sweep:'测试', startSweep:'▶ 开始扫频', stopSweep:'■ 停止',
     from:'起始', to:'终止', points:'点数', dur:'时长', ms:'ms',
     filter:'带通滤波',
-    ready:'就绪', waiting:'Awaiting measurement', preparing:'Preparing…', processing:'Processing…',
-    measuring:'Measuring', pointFmt:(c,t,f)=>`点 ${c}/${t}  ${f.toFixed(0)} Hz`,
+    ready:'就绪', waiting:'等待测量', preparing:'准备中…', processing:'处理中…',
+    measuring:'测量中', pointFmt:(c,t,f)=>`点 ${c}/${t}  ${f.toFixed(0)} Hz`,
     done:'完成', doneFmt:(n,lo,hi)=>`${n} 个频率点 · 范围 ${lo}–${hi} Hz`,
     error:'错误', stopped:'已停止', aborted:'测量被中止',
-    failed:'失败', noData:'测量数据不足，请检查输入/输出设备和音量', noSweepData:'数据不足，请先执行Sweep measurement',
+    failed:'失败', noData:'测量数据不足，请检查输入/输出设备和音量', noSweepData:'数据不足，请先执行扫频测量',
     peqGenFailed:'未能生成 PEQ 参数', peqGenDone:(n)=>`自动 PEQ: ${n} 个`,
     selectMicFirst:'请先选择输入设备并启动麦克风',
     dataInfo:(n,lo,hi,t)=>`数据: ${n} 点 · ${lo}–${hi} Hz · ${t}`,
@@ -484,23 +484,14 @@ function applyLanguage(lang) {
     const ll = sw.querySelectorAll('.panel-row label');
     if (ll[0]) ll[0].textContent = t.from;
     if (ll[1]) ll[1].textContent = t.to;
-    if (ll[2]) ll[2].textContent = t.points;
-    if (ll[3]) ll[3].textContent = t.dur;
-    // ll[4] 是 chk-label（含 checkbox），安全替换文本
-    if (ll[4]) {
-      const cb = ll[4].querySelector('input[type="checkbox"]');
-      ll[4].textContent = '';
-      if (cb) ll[4].appendChild(cb);
-      ll[4].append(t.filter);
-    }
-    if (ll[5]) ll[5].textContent = 'Q';
+    if (ll[2]) ll[2].textContent = t.dur;
   });
-  // 单位
+  // Units
   safe(() => {
     const spans = __('#sweepPanel span[style*="font-size:11px"]');
     if (spans[0]) spans[0].textContent = t.hz;
     if (spans[1]) spans[1].textContent = t.hz;
-    if (spans[2]) spans[2].textContent = t.ms;
+    if (spans[2]) spans[2].textContent = 's';
   });
 
   // 状态
