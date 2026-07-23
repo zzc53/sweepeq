@@ -75,7 +75,7 @@ const STR = {
     micLabel:(i)=>`麦克风 ${i}`, speakerLabel:(i)=>`扬声器 ${i}`,
     hz:'Hz', db:'dB',
     axisLeft:'频响 dB', axisRight:'PEQ dB',
-    placeholder1:'执行Sweep measurement以获取频率响应', placeholder2:'点击左侧「开始扫频」按钮',
+    placeholder1:'执行扫频测量以获取频率响应', placeholder2:'点击左侧「开始扫频」按钮',
   },
   en: {
     appTitle:'🎧 Acoustic Measurement', device:'Device', input:'Input Device',
@@ -463,7 +463,7 @@ function applyLanguage(lang) {
   const safe = (fn) => { try { fn(); } catch(e) { console.warn('i18n:', e); } };
 
   safe(() => document.querySelector('h1').textContent = '🎧 SweepEQ');
-  safe(() => { document.title = 'Sweep EQ: Room EQ made easy'; });
+  safe(() => { document.title = 'Sweep EQ: EQ Made Easy'; });
   safe(() => _('#devicePanel h2').textContent = t.device);
   safe(() => _('#levelPanel h2').textContent = t.level);
   safe(() => _('#adjustPanel h2').textContent = t.adjust);
