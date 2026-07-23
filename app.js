@@ -22,10 +22,10 @@
  * SOFTWARE.
  */
 // ========================================================================
-//  多语言翻译
+//  Internationalization
 // ========================================================================
-const LANGUAGES = ['zh','en','fr','es','ru','de','ja','ko','pt'];
-const LOCALE_NAMES = { zh:'中文', en:'English', fr:'Français', es:'Español',
+const LANGUAGES = ['en','zh','fr','es','ru','de','ja','ko','pt'];
+const LOCALE_NAMES = { en:'English', zh:'中文', fr:'Français', es:'Español',
   ru:'Русский', de:'Deutsch', ja:'日本語', ko:'한국어', pt:'Português' };
 
 const STR = {
@@ -38,11 +38,11 @@ const STR = {
     sweep:'测试', startSweep:'▶ 开始扫频', stopSweep:'■ 停止',
     from:'起始', to:'终止', points:'点数', dur:'时长', ms:'ms',
     filter:'带通滤波',
-    ready:'就绪', waiting:'等待测量', preparing:'准备中…', processing:'处理中…',
-    measuring:'测量中', pointFmt:(c,t,f)=>`点 ${c}/${t}  ${f.toFixed(0)} Hz`,
+    ready:'就绪', waiting:'Awaiting measurement', preparing:'Preparing…', processing:'Processing…',
+    measuring:'Measuring', pointFmt:(c,t,f)=>`点 ${c}/${t}  ${f.toFixed(0)} Hz`,
     done:'完成', doneFmt:(n,lo,hi)=>`${n} 个频率点 · 范围 ${lo}–${hi} Hz`,
     error:'错误', stopped:'已停止', aborted:'测量被中止',
-    failed:'失败', noData:'测量数据不足，请检查输入/输出设备和音量', noSweepData:'数据不足，请先执行扫频测量',
+    failed:'失败', noData:'测量数据不足，请检查输入/输出设备和音量', noSweepData:'数据不足，请先执行Sweep measurement',
     peqGenFailed:'未能生成 PEQ 参数', peqGenDone:(n)=>`自动 PEQ: ${n} 个`,
     selectMicFirst:'请先选择输入设备并启动麦克风',
     dataInfo:(n,lo,hi,t)=>`数据: ${n} 点 · ${lo}–${hi} Hz · ${t}`,
@@ -73,7 +73,7 @@ const STR = {
     micLabel:(i)=>`麦克风 ${i}`, speakerLabel:(i)=>`扬声器 ${i}`,
     hz:'Hz', db:'dB',
     axisLeft:'频响 dB', axisRight:'PEQ dB',
-    placeholder1:'执行扫频测量以获取频率响应', placeholder2:'点击左侧「开始扫频」按钮',
+    placeholder1:'执行Sweep measurement以获取频率响应', placeholder2:'点击左侧「开始扫频」按钮',
   },
   en: {
     appTitle:'🎧 Acoustic Measurement', device:'Device', input:'Input Device',
@@ -439,7 +439,7 @@ const STR = {
   },
 };
 
-let _lang = 'zh';
+let _lang = 'en';
 function tr(key) { return STR[_lang] && STR[_lang][key] !== undefined ? STR[_lang][key] : (STR.en[key] || key); }
 function trf(key, ...args) { const v = tr(key); return typeof v === 'function' ? v(...args) : v; }
 
@@ -452,12 +452,13 @@ function applyLanguage(lang) {
   const safe = (fn) => { try { fn(); } catch(e) { console.warn('i18n:', e); } };
 
   safe(() => document.querySelector('h1').textContent = '🎧 SweepEQ');
+  safe(() => { document.title = 'Sweep EQ: Room EQ made easy'; });
   safe(() => _('#devicePanel h2').textContent = t.device);
   safe(() => _('#levelPanel h2').textContent = t.level);
   safe(() => _('#adjustPanel h2').textContent = t.adjust);
   safe(() => _('#sweepPanel h2').textContent = t.sweep);
 
-  // 设备面板
+  // Device panel
   safe(() => _('#devicePanel .panel-row:nth-child(2) label').textContent = t.input);
   safe(() => _('#devicePanel .panel-row:nth-child(3) label').textContent = t.inputCh);
   safe(() => _('#devicePanel .panel-row:nth-child(4) label').textContent = t.output);
@@ -468,13 +469,13 @@ function applyLanguage(lang) {
   safe(() => { $refreshDevices.textContent = t.refresh; });
   safe(() => { $audioStatus.textContent = t.standby; });
 
-  // 调整面板
+  // Adjust panel
   safe(() => { $playNoise.textContent = t.noise; });
   safe(() => { $stopNoise.textContent = t.stop; });
   safe(() => _('#adjustPanel .panel-row:nth-child(3) label').textContent = t.inGain);
   safe(() => { $autoLevelBtn.textContent = t.autoLevel; });
 
-  // 测试面板
+  // Sweep panel
   safe(() => { $startSweep.textContent = t.startSweep; });
   safe(() => { $stopSweep.textContent = t.stopSweep; });
   safe(() => {
@@ -509,7 +510,7 @@ function applyLanguage(lang) {
     }
   });
 
-  // 图例
+  // Legend
   safe(() => {
     const items = __('.legend-item');
     if (items.length >= 4) {
@@ -535,7 +536,7 @@ function applyLanguage(lang) {
   safe(() => { $clearPeqBtn.textContent = t.peqClear; });
   safe(() => { $peqEmpty.textContent = t.peqEmpty; });
 
-  // 自动 PEQ 面板
+  // Auto PEQ 面板
   safe(() => {
     const el = _('[data-i18n="autoPeqLabel"]'); if (el) el.textContent = t.autoPeqLabel;
   });
@@ -620,7 +621,7 @@ function detectBrowserLang() {
 // ========================================================================
 //  AudioEngine — Web Audio 引擎
 //  职责：创建 AudioContext，管理输入（麦克风）和输出（播放）音频链，
-//  生成白噪声，执行扫频测量，自动调整输入电平
+//  生成白噪声，执行Sweep measurement，Auto input level adjustment
 // ========================================================================
 //  AudioEngine — 管理 Web Audio 上下文、设备、节点
 // ========================================================================
@@ -693,7 +694,7 @@ class AudioEngine {
       }
     };
     this.micStream = await navigator.mediaDevices.getUserMedia(constraints);
-    // 检测输入声道数
+    // Detect input channel count
     try {
       const track = this.micStream.getAudioTracks()[0];
       const settings = track.getSettings();
@@ -724,7 +725,7 @@ class AudioEngine {
     this._isRecording = false;
   }
 
-  /** 设置输出音量（dB），先取消已调度值再设定，兼容 Safari */
+  /** Set output volume (dB), cancels scheduled values first (Safari compat) */
   setOutVolume(dB) {
     if (!this.masterGain) return;
     const gain = Math.pow(10, dB / 20);
@@ -732,7 +733,7 @@ class AudioEngine {
     this.masterGain.gain.setValueAtTime(gain, this.ctx.currentTime);
   }
 
-  /** 设置输入增益（dB），先取消已调度值再设定 */
+  /** Set input gain (dB), cancels scheduled values first */
   setInGain(dB) {
     if (!this.micGain) return;
     const gain = Math.pow(10, dB / 20);
@@ -740,7 +741,7 @@ class AudioEngine {
     this.micGain.gain.setValueAtTime(gain, this.ctx.currentTime);
   }
 
-  /** 设置输出声道：'all'=所有声道，'0'/'1'/...=指定声道 */
+  /** Set output channel: 'all' or channel index */
   setOutputChannel(mode) {
     if (!this._outGains || this._outGains.length === 0) return;
     if (mode === 'all') {
@@ -753,7 +754,7 @@ class AudioEngine {
     }
   }
 
-  /** 切换输出设备（仅 Chrome setSinkId 支持） */
+  /** Switch output device (Chrome setSinkId only) */
   async setOutputDevice(deviceId) {
     if (!this.ctx || typeof this.ctx.setSinkId !== 'function') return false;
     try {
@@ -765,13 +766,13 @@ class AudioEngine {
     }
   }
 
-  /** 静态检测当前浏览器是否支持输出设备切换 */
+  /** Check if browser supports output device switching */
   static supportsOutputSwitch() {
     return typeof AudioContext !== 'undefined' &&
       typeof AudioContext.prototype.setSinkId === 'function';
   }
 
-  // ---- 白噪声（单声道） ----
+  // ---- White noise (mono) ----
   startNoise(volumeDB = -12) {
     if (!this.ctx || !this.masterGain) return;
     this.stopNoise();
@@ -800,7 +801,7 @@ class AudioEngine {
     this._noiseGain = null;
   }
 
-  // ---- 扫频测量 ----
+  // ---- Sweep measurement ----
   async runSweepMeasure(freqLow, freqHigh, numPoints, pointDurMs, onProgress, onDone, onError, outChan, inChan, useFilter, filterQ) {
     if (!this.ctx || !this.micGain) {
       onError(tr('selectMicFirst'));
@@ -840,7 +841,7 @@ class AudioEngine {
     const muteGain = this.ctx.createGain();
     muteGain.gain.value = 0;
 
-    // 可选的带通滤波器：只通过当前播放频率附近的能量，滤除环境噪声
+    // Optional bandpass filter to reject ambient noise
     let bpFilter = null;
     if (useFilter) {
       bpFilter = this.ctx.createBiquadFilter();
@@ -1071,7 +1072,7 @@ class PEQManager {
     if (this._onChange) this._onChange(this.list);
   }
 
-  /** 计算在给定频率下的总增益 (dB)，叠加所有 PEQ band 的响应（支持 PK/LSC/HSC） */
+  /** Total gain (dB) at given frequency for all PEQ bands (PK/LSC/HSC) */
   getGainAt(freq, sampleRate = 48000) {
     let totalDB = 0;
     for (const peq of this.list) {
@@ -1108,14 +1109,14 @@ function updateAutoPeqTarget() {
 
 // ========================================================================
 //  自动 PEQ (autoeq-c 算法移植) — 基于梯度优化的多滤波器联合拟合法
-//  流程：预处理(残差/平滑/去均值) → 顺序初始化 → AdaBelief 联合优化
+//  流程：Preprocessing(残差/平滑/去均值) → Sequential initialization → AdaBelief 联合优化
 // ========================================================================
 // ========================================================================
 // ========================================================================
 //  autoeq-c 核心算法（JavaScript 移植）
 //  原项目：https://github.com/peqdb/autoeq-c
-//  替换原贪心搜索+网格优化联合梯度优化（AdaBelief）
-//  支持任意点数频率网格（自动适配测量数据）
+//  Replaces the original greedy search + grid search with joint gradient optimization (AdaBelief)
+//  Supports arbitrary grid size (auto-adapts to measurement data)
 // ========================================================================
 //  autoeq-c 核心算法 — 辅助函数
 // ========================================================================
@@ -1190,7 +1191,7 @@ class ChartRenderer {
     const rawPhase = data.map(d => d.phase);
     const hasPhase = rawPhase && rawPhase.some(p => p != null && !isNaN(p));
 
-    // === 双 Y 轴范围计算 ===
+    // === Dual Y-axis range calculation ===
     let correctedDB = null;
     let peqGains = null;
     if (this._peqManager && this._peqManager.list.length > 0) {
@@ -1198,7 +1199,7 @@ class ChartRenderer {
       correctedDB = rawDB.map((db, i) => db + peqGains[i]);
     }
 
-    // 左轴：频响数据以数据范围居中（0dB 不一定在中间）
+    // Left axis: FR data centered on data range
     let leftVals = [...rawDB];
     if (correctedDB) leftVals = leftVals.concat(correctedDB);
     const lDataMin = Math.min(...leftVals);
@@ -1210,7 +1211,7 @@ class ChartRenderer {
     const lMin = lCenter - lHalf;
     const lMax = lCenter + lHalf;
 
-    // 右轴：PEQ 数据以 0dB 对称居中
+    // Right axis: PEQ data centered on 0dB
     let rightMaxAbs = 5;
     if (peqGains) rightMaxAbs = Math.max(...peqGains.map(v => Math.abs(v)), 5);
     const rightPad = Math.max(3, rightMaxAbs * 0.2);
@@ -1455,7 +1456,7 @@ class ChartRenderer {
   }
 
   _drawPlaceholder(ctx, w, h) {
-    const p1 = typeof tr !== 'undefined' ? tr('placeholder1') : '执行扫频测量以获取频率响应';
+    const p1 = typeof tr !== 'undefined' ? tr('placeholder1') : '执行Sweep measurement以获取频率响应';
     const p2 = typeof tr !== 'undefined' ? tr('placeholder2') : '点击左侧「开始扫频」按钮';
     ctx.fillStyle = '#30363d';
     ctx.font = '14px -apple-system, sans-serif';
@@ -1476,7 +1477,7 @@ let chart = null;
 let freqData = null; // saved measurement
 
 // ========================================================================
-//  全局 DOM 引用 — 一次性获取所有 UI 元素，避免重复查询
+//  Global DOM references — fetch once, avoid repeated queries
 // ========================================================================
 // ---- DOM refs ----
 const $inDevice = document.getElementById('inDevice');
@@ -1583,7 +1584,7 @@ function stopNoiseLevelMonitor() {
 }
 
 /**
- * 自动调整输入电平 —— 播放白噪声并调整 micGain，使 RMS 电平接近 -15 dB
+ * Auto input level adjustment —— 播放白噪声并调整 micGain，使 RMS 电平接近 -15 dB
  * 调整过程中输入增益滑杆不可用，调整完成后恢复
  */
 function autoAdjustInputLevel() {
@@ -1815,7 +1816,7 @@ function setStatus(type, badge, detail) {
   $statusDetail.textContent = detail;
 }
 
-/** 播放时锁定/解锁设备与声道控件 */
+/** Lock/unlock device and channel controls during playback */
 function lockDevices(locked) {
   $inDevice.disabled = !!locked;
   $inChannel.disabled = !!locked;
@@ -1872,7 +1873,7 @@ function setupEventListeners() {
     audio.setInGain(v);
   });
 
-  // Noise — 播放时禁用扫频按钮（互斥），开启电平表
+  // Noise — 播放时禁用扫频按钮（mutual exclusion），开启电平表
   $playNoise.addEventListener('click', async () => {
     if (!audio.ctx || audio.ctx.state === 'closed') {
       const ok = await ensureAudioReady();
@@ -1886,7 +1887,7 @@ function setupEventListeners() {
     $playNoise.disabled = true;
     $stopNoise.disabled = false;
     $autoLevelBtn.disabled = false;    // 白噪声播放时可自动调整
-    $startSweep.disabled = true;       // 互斥
+    $startSweep.disabled = true;       // mutual exclusion
   });
   $stopNoise.addEventListener('click', () => {
     audio.stopNoise();
@@ -1899,12 +1900,12 @@ function setupEventListeners() {
     $startSweep.disabled = false;      // 恢复
   });
 
-  // Auto Level — 自动调整输入电平
+  // Auto Level — Auto input level adjustment
   $autoLevelBtn.addEventListener('click', () => {
     autoAdjustInputLevel();
   });
 
-  // Sweep — 开始时禁用白噪声按钮（互斥），开启电平表
+  // Sweep — 开始时禁用白噪声按钮（mutual exclusion），开启电平表
   $startSweep.addEventListener('click', async () => {
     if (!audio.ctx || audio.ctx.state === 'closed') {
       const ok = await ensureAudioReady();
@@ -1915,7 +1916,7 @@ function setupEventListeners() {
     audio.stopNoise();
     stopLevelMeter();
     stopNoiseLevelMonitor();
-    $playNoise.disabled = true;        // 互斥
+    $playNoise.disabled = true;        // mutual exclusion
     $stopNoise.disabled = true;
 
     startLevelMeter();
@@ -2020,7 +2021,7 @@ function setupEventListeners() {
     }
   });
 
-  // 输出声道切换 — 实时生效
+  // 输出声道切换 — takes effect immediately
   const $outChan = document.getElementById('outChannel');
   $outChan.addEventListener('change', () => {
     audio.setOutputChannel($outChan.value);

@@ -41,7 +41,7 @@ function _search(arr, v) {
   return idx;
 }
 
-// ---- Biquad 系数计算（含解析梯度） ----
+// ---- Biquad coefficient computation (with analytic gradients) ----
 function _bqPK(A, cos_w, alpha) {
   const rA = 1 / A;
   return {
@@ -79,7 +79,7 @@ function _bqHSC(A, cos_w, alpha) {
 }
 const _BIQUAD_FNS = [_bqPK, _bqLSC, _bqHSC];
 
-// ---- spectrum：计算单个滤波器在指定频率点的频响并累加到 y ----
+// ---- spectrum: compute filter frequency response and accumulate into y ----
 function _spectrum(type, f0, gain, Q, fs, freqs, y) {
   const A = _exp10(gain / 40);
   const w0 = 2 * Math.PI / fs * f0;
@@ -100,7 +100,7 @@ function _spectrum(type, f0, gain, Q, fs, freqs, y) {
   }
 }
 
-// ---- 峰检测 (scipy-compatible: find_peaks + prominence + width) ----
+// ---- Peak detection (scipy-compatible: find_peaks + prominence + width) ----
 function _largestPeak(x, freqs, lim) {
   const K = freqs.length;
   const H = Math.floor(K / 2);
@@ -145,7 +145,7 @@ function _largestPeak(x, freqs, lim) {
   return best;
 }
 
-// ---- 初始化函数 ----
+// ---- Initialization functions ----
 function _initPK(y, freqs, fs, limF0, limGain, limQ) {
   const K = freqs.length;
   let rect = y.map(v => Math.max(v, 0));
@@ -196,7 +196,7 @@ function _initHSC(y, freqs, fs, limF0, limGain, limQ) {
 }
 const _INIT_FNS = [_initPK, _initLSC, _initHSC];
 
-/** 计算单个滤波器在指定频率的 dB 增益（支持 PK/LSC/HSC） */
+/** Compute dB gain of a single filter at a given frequency (PK/LSC/HSC) */
 function _filterGainAt(type, f0, gainDB, Q, freq, fs) {
   const A = _exp10(gainDB / 40);
   const w0 = 2 * Math.PI * f0 / fs;
@@ -217,7 +217,7 @@ function _filterGainAt(type, f0, gainDB, Q, freq, fs) {
   return 10 * Math.log10(Math.max(b_poly / a_poly, 1e-12));
 }
 
-// ---- 自适应平滑 (bilateral-ish filtering) ----
+// ---- Adaptive smoothing (bilateral-ish filtering) ----
 function _adaptiveSmooth(freqs, r, smoothF0, smoothF1, smoothLo, smoothHi,
     biasF0, biasF1, biasF2, biasF3, biasLo, biasMd, biasHi, clipF) {
   const K = freqs.length;
@@ -248,7 +248,7 @@ function _adaptiveSmooth(freqs, r, smoothF0, smoothF1, smoothLo, smoothHi,
   }
 }
 
-// ---- 高频滚降 ----
+// ---- Treble rolloff ----
 function _trebleRolloff(freqs, r, fTreble) {
   const K = freqs.length;
   const trebleIdx = _search(freqs, fTreble);
@@ -261,7 +261,7 @@ function _trebleRolloff(freqs, r, fTreble) {
   }
 }
 
-// ---- AdaBelief 优化器 ----
+// ---- AdaBelief optimizer ----
 class _AdaBelief {
   constructor(N) {
     this.N = N;
@@ -288,7 +288,7 @@ class _AdaBelief {
   }
 }
 
-// ---- 解析梯度计算 ----
+// ---- Analytic gradient computation ----
 function _grad(types, phi, r, fs, N, optAmp, x, g) {
   const K = r.length;
   const rK = 1 / K;
@@ -369,7 +369,7 @@ function _grad(types, phi, r, fs, N, optAmp, x, g) {
   return L;
 }
 
-// ---- 主拟合循环 ----
+// ---- Main fit loop ----
 function _fit(steps, types, f0, gain, Q, amp, f0Lim, gainLim, QLim, N, freqs, r, fs) {
   const K = freqs.length;
   const lfLim = [], bwLim = [];
@@ -414,7 +414,7 @@ function _fit(steps, types, f0, gain, Q, amp, f0Lim, gainLim, QLim, N, freqs, r,
   return { amp, loss: bestL };
 }
 
-// ---- 预处理 ----
+// ---- Preprocessing ----
 function _preprocess(freqs, dst, src, r, smooth, demean) {
   const K = freqs.length;
   for (let k = 0; k < K; k++) r[k] = dst[k] - src[k];
@@ -434,11 +434,11 @@ function _preprocess(freqs, dst, src, r, smooth, demean) {
   return mean;
 }
 
-// ---- 顶层 autoeq ----
+// ---- Top-level autoeq ----
 function _autoeq(steps, types, f0, gain, Q, amp, f0Lim, gainLim, QLim, N, freqs, r, fs) {
   const K = freqs.length;
   const rInit = r.slice();
-  // 顺序初始化
+  // Sequential initialization
   for (let n = 0; n < N; n++) {
     const p = _INIT_FNS[types[n]](rInit, freqs, fs, f0Lim[n], gainLim[n], QLim[n]);
     _spectrum(types[n], p.f0, -p.gain, p.Q, fs, freqs, rInit);
@@ -448,7 +448,7 @@ function _autoeq(steps, types, f0, gain, Q, amp, f0Lim, gainLim, QLim, N, freqs,
   return _fit(steps, types, f0, gain, Q, amp, f0Lim, gainLim, QLim, N, freqs, r, fs);
 }
 
-// ---- 对外接口：改名为 generateAutoPEQ，保持与原调用方兼容 ----
+// ---- Public API: generateAutoPEQ, compatible with original caller ----
 function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, useShelving) {
   if (!freqData || freqData.length < 5) return [];
 
@@ -483,7 +483,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
   const dst = new Float64Array(K); // 全零
 
   // 残差 = dst - src，由 _preprocess 计算
-  // 频率范围屏蔽在预处理后手动应用
+  // Frequency range masking applied after preprocessing
   const r = [];
   for (let k = 0; k < K; k++) r[k] = 0;
 
@@ -519,7 +519,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
     clipF: 18500,
   };
 
-  // 预处理（平滑 + 去均值 + 高频滚降）
+  // Preprocessing（平滑 + 去均值 + Treble rolloff）
   const residual = new Float64Array(K);
   const meanOffset = _preprocess(freqs, dst, src, residual, smooth, true);
 
@@ -528,7 +528,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
     for (let k = 0; k < K; k++) residual[k] += tiltOffsets[k];
   }
 
-  // 频率范围屏蔽（含边界），在预处理后执行
+  // 频率范围屏蔽（含边界），在Preprocessing后执行
   if (freqLow && freqHigh) {
     for (let i = 0; i < K; i++) {
       if (freqs[i] <= freqLow || freqs[i] >= freqHigh) residual[i] = 0;
@@ -541,7 +541,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
     f0Lim, gainLim, QLim, N, freqs, residual, FS
   );
 
-  // 组装返回格式（不预先四舍五入，后处理完再统一舍入）
+  // Build output format (no rounding before post-processing)
   const bands = [];
   for (let n = 0; n < N; n++) {
     const gv = gain[n];
@@ -550,17 +550,17 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
   }
   bands.sort((a, b) => a.freq - b.freq);
 
-  // 后处理：合并邻近的重复滤波器
-  // 扫描过程中 bands 会变短，使用 while 循环
+  // Post-processing: merge nearby duplicate filters
+  // bands array shrinks during scan, use while loop
   let changed = true;
   while (changed) {
     changed = false;
     for (let i = bands.length - 1; i >= 1 && !changed; i--) {
       for (let j = i - 1; j >= 0 && !changed; j--) {
         const ratio = bands[i].freq / bands[j].freq;
-        if (ratio > 1.05) continue; // 频率相差 > 5%，跳过
+        if (ratio > 1.05) continue; // Frequency ratio > 5%, skip
 
-        // --- 情况 A：同号增益 → 合并为单个滤波器 ---
+        // --- 情况 A：Same sign → merge into one filter ---
         if (bands[i].gain * bands[j].gain >= 0) {
           const abs_i = Math.abs(bands[i].gain);
           const abs_j = Math.abs(bands[j].gain);
@@ -577,7 +577,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
           break;
         }
 
-        // --- 情况 B：异号增益且近似抵消 → 移除两者 ---
+        // --- 情况 B：Opposite sign and nearly cancelling → remove both ---
         const net = bands[i].gain + bands[j].gain;
         if (Math.abs(net) < 0.5) {
           bands.splice(j, 1);
@@ -586,7 +586,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
           break;
         }
 
-        // --- 情况 C：异号但不抵消 → 只保留主导的 ---
+        // --- 情况 C：Opposite sign but not cancelling → keep dominant only ---
         // 增益较小的那个移除，因为它被较大的抵消了大部分
         const abs_i = Math.abs(bands[i].gain);
         const abs_j = Math.abs(bands[j].gain);
@@ -603,7 +603,7 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
     }
   }
 
-  // 统一四舍五入并过滤极小增益
+  // Round and filter insignificant gains
   const finalBands = bands
     .filter(b => Math.abs(b.gain) >= 0.5)
     .map(b => ({
@@ -614,8 +614,8 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
     }));
   finalBands.sort((a, b) => a.freq - b.freq);
 
-  // 后处理：修剪边界高增益滤波器
-  // 如果 HSC/LSC 在边界处增益接近 maxGain，降低 Q 使其更平缓
+  // 后处理：Trim high-gain filters at range boundaries
+  // Reduce Q for near-boundary filters with gain near maxGain
   for (const b of finalBands) {
     const nearLo = freqLow && b.freq <= freqLow * 1.1;
     const nearHi = freqHigh && b.freq >= freqHigh * 0.9;
