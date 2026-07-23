@@ -822,6 +822,19 @@ class AudioEngine {
     return sig;
   }
 
+  /** Generate inverse filter for log-sweep deconvolution */
+  _generateInverseFilter(sweep, f0, f1, duration) {
+    const fs = this.ctx.sampleRate;
+    const n = sweep.length;
+    const L = duration / Math.log(f1 / f0);
+    const inv = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = i / fs;
+      inv[i] = sweep[n - 1 - i] * Math.exp(-t / L);
+    }
+    return inv;
+  }
+
   /** Radix-2 FFT/IFFT (in-place). real/imag arrays length must be power of 2 */
   _fft(re, im, inverse) {
     const n = re.length;
