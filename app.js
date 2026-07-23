@@ -822,40 +822,37 @@ class AudioEngine {
     return sig;
   }
 
-  /** Radix-2 FFT (in-place). real/imag arrays length must be power of 2 */
-  _fft(re, im) {
+  /** Radix-2 FFT/IFFT (in-place). real/imag arrays length must be power of 2 */
+  _fft(re, im, inverse) {
     const n = re.length;
-    // Bit reversal
     for (let i = 1, j = 0; i < n; i++) {
       let bit = n >> 1;
       for (; j & bit; bit >>= 1) j ^= bit;
       j ^= bit;
-      if (i < j) {
-        [re[i], re[j]] = [re[j], re[i]];
-        [im[i], im[j]] = [im[j], im[i]];
-      }
+      if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
     }
+    const sign = inverse ? 1 : -1;
     for (let len = 2; len <= n; len <<= 1) {
       const half = len >> 1;
       const wRe = Math.cos(Math.PI / half);
-      const wIm = -Math.sin(Math.PI / half);
+      const wIm = sign * Math.sin(Math.PI / half);
       for (let i = 0; i < n; i += len) {
         let wr = 1, wi = 0;
         for (let j = 0; j < half; j++) {
           const k = i + j;
           const tRe = wr * re[k + half] - wi * im[k + half];
           const tIm = wr * im[k + half] + wi * re[k + half];
-          re[k + half] = re[k] - tRe;
-          im[k + half] = im[k] - tIm;
-          re[k] += tRe;
-          im[k] += tIm;
+          re[k + half] = re[k] - tRe; im[k + half] = im[k] - tIm;
+          re[k] += tRe; im[k] += tIm;
           const tmp = wr * wRe - wi * wIm;
-          wi = wr * wIm + wi * wRe;
-          wr = tmp;
+          wi = wr * wIm + wi * wRe; wr = tmp;
         }
       }
     }
+    if (inverse) { for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; } }
   }
+
+  _ifft(re, im) { this._fft(re, im, true); }
 
   /** Hann window in-place */
   _hannWindow(arr) {
@@ -928,11 +925,12 @@ class AudioEngine {
     this._isRecording = true;
 
     const fs = this.ctx.sampleRate;
-    onProgress(0, 1, 'Generating sweep…');
+    onProgress(0, 1, tr('sweepGenerate'));
 
-    // Generate log-sweep signal
+    // Generate log-sweep signal and inverse filter
     const sweepSignal = this._generateSweepSignal(freqLow, freqHigh, duration);
     const totalSamples = sweepSignal.length;
+    const invFilter = this._generateInverseFilter(sweepSignal, freqLow, freqHigh, duration);
 
     // Setup ScriptProcessorNode for capture
     const inChCount = this._inChannelCount || 2;
@@ -947,64 +945,114 @@ class AudioEngine {
       inputBuffer.push(new Float32Array(data));
       recordedSamples += data.length;
     };
+    const muteGain = this.ctx.createGain();
+    muteGain.gain.value = 1e-6;
+    this.micGain.connect(scriptNode);
+    scriptNode.connect(muteGain);
+    muteGain.connect(this.ctx.destination);
 
-    // Playback setup
+    // Play the log-sweep
     const sweepBuffer = this.ctx.createBuffer(1, totalSamples, fs);
     sweepBuffer.getChannelData(0).set(sweepSignal);
     const source = this.ctx.createBufferSource();
     source.buffer = sweepBuffer;
     const sweepGain = this.ctx.createGain();
-    sweepGain.gain.value = Math.pow(10, -6 / 20);
+    sweepGain.gain.value = 1.0;
     source.connect(sweepGain);
     sweepGain.connect(this.masterGain);
-
-    // Mute node to prevent feedback
-    const muteGain = this.ctx.createGain();
-    muteGain.gain.value = 0;
-    this.micGain.connect(scriptNode);
-    scriptNode.connect(muteGain);
-    muteGain.connect(this.ctx.destination);
-
-    // Play
     source.start();
-    onProgress(1, 2, 'Measuring…');
+    onProgress(1, 2, tr('sweepMeasuring'));
 
-    // Wait for playback + a bit of silence after
-    await this._sleep(Math.ceil(duration * 1000) + 500);
+    // Wait for sweep + silence for room decay
+    await this._sleep(Math.ceil(duration * 1000) + 1000);
     source.stop();
     this._isRecording = false;
 
-    // Cleanup nodes
     this.micGain.disconnect(scriptNode);
     scriptNode.disconnect();
     muteGain.disconnect();
-    this._sweepRunning = false;
 
-    // Combine recorded buffers
-    onProgress(2, 3, 'Processing FFT…');
-    const totalRec = recordedSamples;
-    const recorded = new Float64Array(totalRec);
-    let pos = 0;
-    for (const buf of inputBuffer) {
-      recorded.set(buf, pos);
-      pos += buf.length;
-    }
-
-    // Compute frequency response via FFT
-    const results = this._sweepFFT(recorded, sweepSignal, freqLow, freqHigh);
-
-    if (results.length < 10) {
-      onError('Insufficient data — check input/output devices and volume');
+    if (recordedSamples < 1000) {
+      this._sweepRunning = false;
+      onError('recording empty');
       return;
     }
 
-    // Normalize: shift so max = 0 dB
+    onProgress(2, 3, tr('sweepFFT'));
+    const recorded = new Float64Array(recordedSamples);
+    let pos = 0;
+    for (const buf of inputBuffer) { recorded.set(buf, pos); pos += buf.length; }
+
+    // Deconvolve to get impulse response
+    const ir = this._deconvolve(recorded, invFilter);
+
+    // Window impulse response around peak
+    let peakIdx = 0;
+    for (let i = 1; i < ir.length; i++) { if (ir[i] > ir[peakIdx]) peakIdx = i; }
+    const irLen = 4096;
+    const irStart = Math.max(0, peakIdx - irLen / 4);
+    const irWin = new Float64Array(irLen);
+    for (let i = 0; i < irLen; i++) { irWin[i] = ir[irStart + i] || 0; }
+    this._hannWindow(irWin);
+
+    // FFT the windowed impulse response
+    const reIR = new Float64Array(irLen);
+    const imIR = new Float64Array(irLen);
+    for (let i = 0; i < irLen; i++) reIR[i] = irWin[i];
+    this._fft(reIR, imIR);
+
+    // Build 512 log-spaced frequency results
+    const K = 512;
+    const logLow = Math.log(freqLow);
+    const logHigh = Math.log(freqHigh);
+    const results = [];
+    for (let i = 0; i < K; i++) {
+      const freq = Math.exp(logLow + (logHigh - logLow) * i / (K - 1));
+      const bin = Math.round(freq / fs * irLen);
+      if (bin < 1 || bin >= irLen / 2) continue;
+      const mag = Math.sqrt(reIR[bin] * reIR[bin] + imIR[bin] * imIR[bin]);
+      if (mag > 1e-15) {
+        const dB = 20 * Math.log10(mag);
+        const phase = Math.atan2(imIR[bin], reIR[bin]) * 180 / Math.PI;
+        results.push({ freq, rms: mag, dB, phase });
+      }
+    }
+
+    this._sweepRunning = false;
+
+    if (results.length < 10) {
+      onError(tr('noData'));
+      return;
+    }
+
     const maxDB = Math.max(...results.map(r => r.dB));
     results.forEach(r => { r.dB_norm = r.dB - maxDB; });
 
-    onProgress(3, 3, 'Done');
+    onProgress(3, 3, tr('sweepDone'));
     await this._sleep(50);
     onDone(results, false);
+  }
+
+  /** Deconvolve recorded signal with inverse filter to get impulse response */
+  _deconvolve(recorded, invFilter) {
+    const len = recorded.length + invFilter.length - 1;
+    const fftSize = Math.pow(2, Math.ceil(Math.log2(len)));
+    const reRec = new Float64Array(fftSize);
+    const imRec = new Float64Array(fftSize);
+    const reInv = new Float64Array(fftSize);
+    const imInv = new Float64Array(fftSize);
+    for (let i = 0; i < recorded.length; i++) reRec[i] = recorded[i];
+    for (let i = 0; i < invFilter.length; i++) reInv[i] = invFilter[i];
+    this._fft(reRec, imRec);
+    this._fft(reInv, imInv);
+    const hRe = new Float64Array(fftSize);
+    const hIm = new Float64Array(fftSize);
+    for (let i = 0; i < fftSize; i++) {
+      hRe[i] = reRec[i] * reInv[i] + imRec[i] * imInv[i];
+      hIm[i] = imRec[i] * reInv[i] - reRec[i] * imInv[i];
+    }
+    this._ifft(hRe, hIm);
+    return hRe;
   }
 
   /** RMS from a specific sample range in the flat buffer, skipping settle */
