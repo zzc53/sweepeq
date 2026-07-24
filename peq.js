@@ -502,8 +502,8 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
   const qLim = { lo: 0.4, hi: 4 };
 
   for (let n = 0; n < N; n++) {
-    if (n === 0 && useShelving) { types[n] = AE.LSC; f0Lim[n] = { lo: Math.max(fl, 40), hi: Math.min(fh, 10000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
-    else if (n === 1 && useShelving) { types[n] = AE.HSC; f0Lim[n] = { lo: Math.max(fl, 40), hi: Math.min(fh, 10000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
+    if (n === 0 && useShelving) { types[n] = AE.LSC; f0Lim[n] = { lo: Math.max(fl, 20), hi: Math.min(fh, 500) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
+    else if (n === 1 && useShelving) { types[n] = AE.HSC; f0Lim[n] = { lo: Math.max(fl, 1000), hi: Math.min(fh, 5000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
     else                    { types[n] = AE.PK;  f0Lim[n] = lim; gainLim[n] = gLim; QLim[n] = qLim; }
   }
 
