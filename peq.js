@@ -500,10 +500,13 @@ function generateAutoPEQ(freqData, count, freqLow, freqHigh, maxGain, tiltDB, us
   const lim = { lo: fl, hi: fh };
   const gLim = { lo: -maxGain, hi: maxGain };
   const qLim = { lo: 0.4, hi: 4 };
+  // 搁架滤波器使用更保守的增益上限（宽带影响大，不宜过大）
+  const shelfGainCap = Math.min(maxGain, 10);
+  const shelfGLim = { lo: -shelfGainCap, hi: shelfGainCap };
 
   for (let n = 0; n < N; n++) {
-    if (n === 0 && useShelving) { types[n] = AE.LSC; f0Lim[n] = { lo: Math.max(fl, 20), hi: Math.min(fh, 500) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
-    else if (n === 1 && useShelving) { types[n] = AE.HSC; f0Lim[n] = { lo: Math.max(fl, 1000), hi: Math.min(fh, 5000) }; gainLim[n] = gLim; QLim[n] = { lo: 0.4, hi: 3 }; }
+    if (n === 0 && useShelving) { types[n] = AE.LSC; f0Lim[n] = { lo: Math.max(fl, 20), hi: Math.min(fh, 500) }; gainLim[n] = shelfGLim; QLim[n] = { lo: 0.4, hi: 3 }; }
+    else if (n === 1 && useShelving) { types[n] = AE.HSC; f0Lim[n] = { lo: Math.max(fl, 1000), hi: Math.min(fh, 2000) }; gainLim[n] = shelfGLim; QLim[n] = { lo: 0.4, hi: 3 }; }
     else                    { types[n] = AE.PK;  f0Lim[n] = lim; gainLim[n] = gLim; QLim[n] = qLim; }
   }
 
