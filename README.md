@@ -3,7 +3,7 @@
 **Acoustic measurement and PEQ optimization tool** — measure your room or headphone frequency response and generate parametric EQ filters with a single click.
 
 ![Screenshot](https://img.shields.io/badge/status-beta-blue)
-![License](https://img.shields.io/badge/license-MIT%20%2B%20LGPL-green)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ![Screenshot](screenshot.png)
 
@@ -11,7 +11,7 @@
 
 - **Sweep measurement** — plays a log-spaced sine sweep through your speakers/headphones and captures the response via microphone
 - **Frequency response chart** — real-time visualization with dual Y-axis (left: FR in dB, right: PEQ in dB)
-- **Auto PEQ** — generates optimal parametric EQ filters using gradient-based optimization (AdaBelief optimizer, ported from [autoeq-c](https://github.com/peqdb/autoeq-c))
+- **Auto PEQ** — generates optimal parametric EQ filters using gradient-based optimization (AdaBelief optimizer)
 - **Multi-channel support** — select any input/output channel dynamically
 - **Low-frequency tilt** — target curve can be sloped for bass boost/cut
 - **Manual PEQ editing** — add, remove, and tweak individual PK / LSC / HSC filters
@@ -48,16 +48,14 @@ sweepeq/
 ├── index.html          # Main HTML page
 ├── style.css           # Styles
 ├── app.js              # Application logic (MIT license)
-├── peq.js              # autoeq-c algorithm port (LGPL-3.0)
+├── peq.js              # PEQ optimization engine
 ├── README.md
-├── LICENSE             # MIT License
-└── LICENSE.peq         # LGPL-3.0 (applies to peq.js only)
+└── LICENSE             # MIT License
 ```
 
 ## License
 
-- **app.js, style.css, index.html** — [MIT License](LICENSE)
-- **peq.js** — [LGPL-3.0-or-later](LICENSE.peq) (ported from [autoeq-c](https://github.com/peqdb/autoeq-c) by PEQdB Inc.)
+All source code is licensed under the [MIT License](LICENSE).
 
 ## Browser Support
 
