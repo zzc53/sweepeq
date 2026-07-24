@@ -1289,6 +1289,7 @@ class ChartRenderer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this._freqData = null; // [{freq, dB_norm}]
+    this._sampleRate = 48000; // measurement sample rate, updated on capture/import
     this._peqManager = null;
     this._dpr = window.devicePixelRatio || 1;
     this.resize();
@@ -1316,8 +1317,9 @@ class ChartRenderer {
     this.draw();
   }
 
-  setFreqData(data) {
+  setFreqData(data, sampleRate) {
     this._freqData = data;
+    if (sampleRate) this._sampleRate = sampleRate;
     this.draw();
   }
 
@@ -1356,7 +1358,7 @@ class ChartRenderer {
     let correctedDB = null;
     let peqGains = null;
     if (this._peqManager && this._peqManager.list.length > 0) {
-      peqGains = this._peqManager.getResponse(freqs, 48000);
+      peqGains = this._peqManager.getResponse(freqs, this._sampleRate);
       correctedDB = rawDB.map((db, i) => db + peqGains[i]);
     }
 
@@ -1636,6 +1638,7 @@ const audio = new AudioEngine();
 const peqMgr = new PEQManager();
 let chart = null;
 let freqData = null; // saved measurement
+let currentSampleRate = 48000; // sample rate of the current measurement
 
 // ========================================================================
 //  Global DOM references — fetch once, avoid repeated queries
@@ -2128,7 +2131,8 @@ function setupEventListeners() {
           return;
         }
         freqData = results;
-        chart.setFreqData(results);
+        currentSampleRate = audio.ctx.sampleRate;
+        chart.setFreqData(results, currentSampleRate);
         chart.setPEQManager(peqMgr);
         updateAutoPeqTarget();
         setStatus('done', tr('done'), trf('doneFmt', results.length, lo, hi));
@@ -2353,6 +2357,7 @@ function exportData() {
   const obj = {
     version: 1,
     exportedAt: new Date().toISOString(),
+    sampleRate: currentSampleRate,
     measurement: freqData.map(d => ({ freq: +d.freq.toFixed(6), dB: +d.dB_norm.toFixed(4), phase: d.phase != null ? +d.phase.toFixed(4) : null })),
     peq: peqMgr.list.map(p => ({ freq: p.freq, gain: p.gain, Q: p.Q, type: p.type || 'PK' }))
   };
@@ -2424,6 +2429,7 @@ function importData(e) {
         return;
       }
       // Convert back to full objects with dB_norm
+      currentSampleRate = obj.sampleRate || 48000;
       freqData = obj.measurement.map(d => ({
         freq: d.freq,
         dB: d.dB,
@@ -2431,7 +2437,7 @@ function importData(e) {
         rms: Math.pow(10, d.dB / 20),
         phase: d.phase != null ? d.phase : 0
       }));
-      chart.setFreqData(freqData);
+      chart.setFreqData(freqData, currentSampleRate);
       chart.setPEQManager(peqMgr);
       updateAutoPeqTarget();
 
